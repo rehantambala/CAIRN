@@ -1,0 +1,69 @@
+/* VECTOR design tokens. Semantic, not decorative. Six colors, no others. */
+:root {
+  --color-surface-primary: #F4CED3;
+  --color-text-primary: #000000;
+  --color-text-link: #0000EE;
+  --color-accent: #E33529;
+  --color-background-dark: #F0B5BE;
+  --color-text-light: #F3F3E9;
+
+  /* Semantic roles, re-pointed per block */
+  --bg: var(--color-surface-primary);
+  --fg: var(--color-text-primary);
+  --link: var(--color-text-link);
+  --mark: var(--color-accent);      /* large type, marks and fills only (3.3:1 on surface) */
+  --rule: var(--color-text-primary);
+
+  --font-serif: Times, "Times New Roman", "Liberation Serif", serif;
+  --font-ui: "Neue Montreal", "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
+  --font-display: "Bayon", Impact, "Arial Narrow", sans-serif;
+
+  /* Reference scale. Display sizes are for display only; UI text is xs/sm. */
+  --text-xs: 16px;
+  --text-sm: 19px;
+  --text-base: 35px;
+  --text-lg: 38px;
+  --text-xl: 49px;
+  --text-2xl: 82px;
+  --text-3xl: 219px;
+
+  --weight-regular: 400;
+  --weight-medium: 500;
+  --weight-bold: 700;
+
+  --space-1: 4px;
+  --space-2: 6px;
+  --space-3: 8px;
+  --space-4: 18px;
+  --space-5: 24px;
+  --space-6: 28px;
+  --space-7: 29px;
+  --space-8: 38px;
+  --space-9: 43px;
+  --space-10: 47px;
+  --space-11: 67px;
+  --space-12: 141px;
+  --space-13: 754px;   /* narrative measure */
+  --space-14: 1055px;  /* content column */
+
+  --radius-full: 50%;
+
+  --t-fast: 0.1s ease-in;
+  --t-base: 0.2s ease-out;
+  --t-reveal: 0.45s cubic-bezier(0.24, 1, 0.36, 1) 0.2s;
+  --t-state: 0.5s ease-in-out;
+  --t-enter: 1s cubic-bezier(0.24, 1, 0.36, 1);
+
+  --gutter: var(--space-5);
+  --frame: 1440px;
+  --nav-h: 67px;
+}
+
+@media (min-width: 900px) {
+  :root { --gutter: var(--space-9); }
+}
+
+/* Color blocks: sections recompose the semantic roles instead of adding colors. */
+.block-pink { --bg: var(--color-surface-primary); --fg: var(--color-text-primary); --link: var(--color-text-link); --mark: var(--color-accent); --rule: var(--color-text-primary); }
+.block-deep { --bg: var(--color-background-dark); --fg: var(--color-text-primary); --link: var(--color-text-link); --mark: var(--color-text-primary); --rule: var(--color-text-primary); }
+.block-ink  { --bg: var(--color-text-primary); --fg: var(--color-text-light); --link: var(--color-text-light); --mark: var(--color-accent); --rule: var(--color-text-light); }

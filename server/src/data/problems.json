@@ -1,0 +1,962 @@
+[
+ {
+  "platform": "leetcode",
+  "externalId": "two-sum",
+  "title": "Two Sum",
+  "url": "https://leetcode.com/problems/two-sum/",
+  "difficulty": "Easy",
+  "topic": "Array"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "valid-parentheses",
+  "title": "Valid Parentheses",
+  "url": "https://leetcode.com/problems/valid-parentheses/",
+  "difficulty": "Easy",
+  "topic": "Stack"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "merge-two-sorted-lists",
+  "title": "Merge Two Sorted Lists",
+  "url": "https://leetcode.com/problems/merge-two-sorted-lists/",
+  "difficulty": "Easy",
+  "topic": "Linked List"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "best-time-to-buy-and-sell-stock",
+  "title": "Best Time to Buy and Sell Stock",
+  "url": "https://leetcode.com/problems/best-time-to-buy-and-sell-stock/",
+  "difficulty": "Easy",
+  "topic": "Array"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "valid-palindrome",
+  "title": "Valid Palindrome",
+  "url": "https://leetcode.com/problems/valid-palindrome/",
+  "difficulty": "Easy",
+  "topic": "Two Pointers"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "invert-binary-tree",
+  "title": "Invert Binary Tree",
+  "url": "https://leetcode.com/problems/invert-binary-tree/",
+  "difficulty": "Easy",
+  "topic": "Tree"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "valid-anagram",
+  "title": "Valid Anagram",
+  "url": "https://leetcode.com/problems/valid-anagram/",
+  "difficulty": "Easy",
+  "topic": "Hash Table"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "binary-search",
+  "title": "Binary Search",
+  "url": "https://leetcode.com/problems/binary-search/",
+  "difficulty": "Easy",
+  "topic": "Binary Search"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "flood-fill",
+  "title": "Flood Fill",
+  "url": "https://leetcode.com/problems/flood-fill/",
+  "difficulty": "Easy",
+  "topic": "Graph"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "maximum-subarray",
+  "title": "Maximum Subarray",
+  "url": "https://leetcode.com/problems/maximum-subarray/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "contains-duplicate",
+  "title": "Contains Duplicate",
+  "url": "https://leetcode.com/problems/contains-duplicate/",
+  "difficulty": "Easy",
+  "topic": "Hash Table"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "product-of-array-except-self",
+  "title": "Product of Array Except Self",
+  "url": "https://leetcode.com/problems/product-of-array-except-self/",
+  "difficulty": "Medium",
+  "topic": "Array"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "3sum",
+  "title": "3Sum",
+  "url": "https://leetcode.com/problems/3sum/",
+  "difficulty": "Medium",
+  "topic": "Two Pointers"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "container-with-most-water",
+  "title": "Container With Most Water",
+  "url": "https://leetcode.com/problems/container-with-most-water/",
+  "difficulty": "Medium",
+  "topic": "Two Pointers"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "longest-substring-without-repeating-characters",
+  "title": "Longest Substring Without Repeating Characters",
+  "url": "https://leetcode.com/problems/longest-substring-without-repeating-characters/",
+  "difficulty": "Medium",
+  "topic": "Sliding Window"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "group-anagrams",
+  "title": "Group Anagrams",
+  "url": "https://leetcode.com/problems/group-anagrams/",
+  "difficulty": "Medium",
+  "topic": "Hash Table"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "top-k-frequent-elements",
+  "title": "Top K Frequent Elements",
+  "url": "https://leetcode.com/problems/top-k-frequent-elements/",
+  "difficulty": "Medium",
+  "topic": "Heap"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "validate-binary-search-tree",
+  "title": "Validate Binary Search Tree",
+  "url": "https://leetcode.com/problems/validate-binary-search-tree/",
+  "difficulty": "Medium",
+  "topic": "Tree"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "number-of-islands",
+  "title": "Number of Islands",
+  "url": "https://leetcode.com/problems/number-of-islands/",
+  "difficulty": "Medium",
+  "topic": "Graph"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "clone-graph",
+  "title": "Clone Graph",
+  "url": "https://leetcode.com/problems/clone-graph/",
+  "difficulty": "Medium",
+  "topic": "Graph"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "course-schedule",
+  "title": "Course Schedule",
+  "url": "https://leetcode.com/problems/course-schedule/",
+  "difficulty": "Medium",
+  "topic": "Graph"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "coin-change",
+  "title": "Coin Change",
+  "url": "https://leetcode.com/problems/coin-change/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "climbing-stairs",
+  "title": "Climbing Stairs",
+  "url": "https://leetcode.com/problems/climbing-stairs/",
+  "difficulty": "Easy",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "house-robber",
+  "title": "House Robber",
+  "url": "https://leetcode.com/problems/house-robber/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "longest-increasing-subsequence",
+  "title": "Longest Increasing Subsequence",
+  "url": "https://leetcode.com/problems/longest-increasing-subsequence/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "word-break",
+  "title": "Word Break",
+  "url": "https://leetcode.com/problems/word-break/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "combination-sum",
+  "title": "Combination Sum",
+  "url": "https://leetcode.com/problems/combination-sum/",
+  "difficulty": "Medium",
+  "topic": "Backtracking"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "permutations",
+  "title": "Permutations",
+  "url": "https://leetcode.com/problems/permutations/",
+  "difficulty": "Medium",
+  "topic": "Backtracking"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "subsets",
+  "title": "Subsets",
+  "url": "https://leetcode.com/problems/subsets/",
+  "difficulty": "Medium",
+  "topic": "Backtracking"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "kth-largest-element-in-an-array",
+  "title": "Kth Largest Element in an Array",
+  "url": "https://leetcode.com/problems/kth-largest-element-in-an-array/",
+  "difficulty": "Medium",
+  "topic": "Heap"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "merge-intervals",
+  "title": "Merge Intervals",
+  "url": "https://leetcode.com/problems/merge-intervals/",
+  "difficulty": "Medium",
+  "topic": "Intervals"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "insert-interval",
+  "title": "Insert Interval",
+  "url": "https://leetcode.com/problems/insert-interval/",
+  "difficulty": "Medium",
+  "topic": "Intervals"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "rotate-image",
+  "title": "Rotate Image",
+  "url": "https://leetcode.com/problems/rotate-image/",
+  "difficulty": "Medium",
+  "topic": "Matrix"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "spiral-matrix",
+  "title": "Spiral Matrix",
+  "url": "https://leetcode.com/problems/spiral-matrix/",
+  "difficulty": "Medium",
+  "topic": "Matrix"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "set-matrix-zeroes",
+  "title": "Set Matrix Zeroes",
+  "url": "https://leetcode.com/problems/set-matrix-zeroes/",
+  "difficulty": "Medium",
+  "topic": "Matrix"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "search-in-rotated-sorted-array",
+  "title": "Search in Rotated Sorted Array",
+  "url": "https://leetcode.com/problems/search-in-rotated-sorted-array/",
+  "difficulty": "Medium",
+  "topic": "Binary Search"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "find-minimum-in-rotated-sorted-array",
+  "title": "Find Minimum in Rotated Sorted Array",
+  "url": "https://leetcode.com/problems/find-minimum-in-rotated-sorted-array/",
+  "difficulty": "Medium",
+  "topic": "Binary Search"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "min-stack",
+  "title": "Min Stack",
+  "url": "https://leetcode.com/problems/min-stack/",
+  "difficulty": "Medium",
+  "topic": "Stack"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "evaluate-reverse-polish-notation",
+  "title": "Evaluate Reverse Polish Notation",
+  "url": "https://leetcode.com/problems/evaluate-reverse-polish-notation/",
+  "difficulty": "Medium",
+  "topic": "Stack"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "daily-temperatures",
+  "title": "Daily Temperatures",
+  "url": "https://leetcode.com/problems/daily-temperatures/",
+  "difficulty": "Medium",
+  "topic": "Stack"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "car-fleet",
+  "title": "Car Fleet",
+  "url": "https://leetcode.com/problems/car-fleet/",
+  "difficulty": "Medium",
+  "topic": "Stack"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "largest-rectangle-in-histogram",
+  "title": "Largest Rectangle in Histogram",
+  "url": "https://leetcode.com/problems/largest-rectangle-in-histogram/",
+  "difficulty": "Hard",
+  "topic": "Stack"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "trapping-rain-water",
+  "title": "Trapping Rain Water",
+  "url": "https://leetcode.com/problems/trapping-rain-water/",
+  "difficulty": "Hard",
+  "topic": "Two Pointers"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "lowest-common-ancestor-of-a-binary-search-tree",
+  "title": "Lowest Common Ancestor of a Binary Search Tree",
+  "url": "https://leetcode.com/problems/lowest-common-ancestor-of-a-binary-search-tree/",
+  "difficulty": "Medium",
+  "topic": "Tree"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "binary-tree-level-order-traversal",
+  "title": "Binary Tree Level Order Traversal",
+  "url": "https://leetcode.com/problems/binary-tree-level-order-traversal/",
+  "difficulty": "Medium",
+  "topic": "Tree"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "reverse-linked-list",
+  "title": "Reverse Linked List",
+  "url": "https://leetcode.com/problems/reverse-linked-list/",
+  "difficulty": "Easy",
+  "topic": "Linked List"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "linked-list-cycle",
+  "title": "Linked List Cycle",
+  "url": "https://leetcode.com/problems/linked-list-cycle/",
+  "difficulty": "Easy",
+  "topic": "Linked List"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "lru-cache",
+  "title": "LRU Cache",
+  "url": "https://leetcode.com/problems/lru-cache/",
+  "difficulty": "Medium",
+  "topic": "Design"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "word-search",
+  "title": "Word Search",
+  "url": "https://leetcode.com/problems/word-search/",
+  "difficulty": "Medium",
+  "topic": "Backtracking"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "decode-ways",
+  "title": "Decode Ways",
+  "url": "https://leetcode.com/problems/decode-ways/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "unique-paths",
+  "title": "Unique Paths",
+  "url": "https://leetcode.com/problems/unique-paths/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "jump-game",
+  "title": "Jump Game",
+  "url": "https://leetcode.com/problems/jump-game/",
+  "difficulty": "Medium",
+  "topic": "Greedy"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "longest-palindromic-substring",
+  "title": "Longest Palindromic Substring",
+  "url": "https://leetcode.com/problems/longest-palindromic-substring/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "palindromic-substrings",
+  "title": "Palindromic Substrings",
+  "url": "https://leetcode.com/problems/palindromic-substrings/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "number-of-1-bits",
+  "title": "Number of 1 Bits",
+  "url": "https://leetcode.com/problems/number-of-1-bits/",
+  "difficulty": "Easy",
+  "topic": "Bit Manipulation"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "counting-bits",
+  "title": "Counting Bits",
+  "url": "https://leetcode.com/problems/counting-bits/",
+  "difficulty": "Easy",
+  "topic": "Bit Manipulation"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "missing-number",
+  "title": "Missing Number",
+  "url": "https://leetcode.com/problems/missing-number/",
+  "difficulty": "Easy",
+  "topic": "Bit Manipulation"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "sum-of-two-integers",
+  "title": "Sum of Two Integers",
+  "url": "https://leetcode.com/problems/sum-of-two-integers/",
+  "difficulty": "Medium",
+  "topic": "Bit Manipulation"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "reorder-list",
+  "title": "Reorder List",
+  "url": "https://leetcode.com/problems/reorder-list/",
+  "difficulty": "Medium",
+  "topic": "Linked List"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "remove-nth-node-from-end-of-list",
+  "title": "Remove Nth Node From End of List",
+  "url": "https://leetcode.com/problems/remove-nth-node-from-end-of-list/",
+  "difficulty": "Medium",
+  "topic": "Linked List"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "maximum-depth-of-binary-tree",
+  "title": "Maximum Depth of Binary Tree",
+  "url": "https://leetcode.com/problems/maximum-depth-of-binary-tree/",
+  "difficulty": "Easy",
+  "topic": "Tree"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "same-tree",
+  "title": "Same Tree",
+  "url": "https://leetcode.com/problems/same-tree/",
+  "difficulty": "Easy",
+  "topic": "Tree"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "subtree-of-another-tree",
+  "title": "Subtree of Another Tree",
+  "url": "https://leetcode.com/problems/subtree-of-another-tree/",
+  "difficulty": "Easy",
+  "topic": "Tree"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "kth-smallest-element-in-a-bst",
+  "title": "Kth Smallest Element in a BST",
+  "url": "https://leetcode.com/problems/kth-smallest-element-in-a-bst/",
+  "difficulty": "Medium",
+  "topic": "Tree"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "serialize-and-deserialize-binary-tree",
+  "title": "Serialize and Deserialize Binary Tree",
+  "url": "https://leetcode.com/problems/serialize-and-deserialize-binary-tree/",
+  "difficulty": "Hard",
+  "topic": "Tree"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "implement-trie-prefix-tree",
+  "title": "Implement Trie (Prefix Tree)",
+  "url": "https://leetcode.com/problems/implement-trie-prefix-tree/",
+  "difficulty": "Medium",
+  "topic": "Trie"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "design-add-and-search-words-data-structure",
+  "title": "Design Add and Search Words Data Structure",
+  "url": "https://leetcode.com/problems/design-add-and-search-words-data-structure/",
+  "difficulty": "Medium",
+  "topic": "Trie"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "pacific-atlantic-water-flow",
+  "title": "Pacific Atlantic Water Flow",
+  "url": "https://leetcode.com/problems/pacific-atlantic-water-flow/",
+  "difficulty": "Medium",
+  "topic": "Graph"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "rotting-oranges",
+  "title": "Rotting Oranges",
+  "url": "https://leetcode.com/problems/rotting-oranges/",
+  "difficulty": "Medium",
+  "topic": "Graph"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "network-delay-time",
+  "title": "Network Delay Time",
+  "url": "https://leetcode.com/problems/network-delay-time/",
+  "difficulty": "Medium",
+  "topic": "Graph"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "cheapest-flights-within-k-stops",
+  "title": "Cheapest Flights Within K Stops",
+  "url": "https://leetcode.com/problems/cheapest-flights-within-k-stops/",
+  "difficulty": "Medium",
+  "topic": "Graph"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "min-cost-climbing-stairs",
+  "title": "Min Cost Climbing Stairs",
+  "url": "https://leetcode.com/problems/min-cost-climbing-stairs/",
+  "difficulty": "Easy",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "partition-equal-subset-sum",
+  "title": "Partition Equal Subset Sum",
+  "url": "https://leetcode.com/problems/partition-equal-subset-sum/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "longest-common-subsequence",
+  "title": "Longest Common Subsequence",
+  "url": "https://leetcode.com/problems/longest-common-subsequence/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "edit-distance",
+  "title": "Edit Distance",
+  "url": "https://leetcode.com/problems/edit-distance/",
+  "difficulty": "Medium",
+  "topic": "Dynamic Programming"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "find-median-from-data-stream",
+  "title": "Find Median from Data Stream",
+  "url": "https://leetcode.com/problems/find-median-from-data-stream/",
+  "difficulty": "Hard",
+  "topic": "Heap"
+ },
+ {
+  "platform": "leetcode",
+  "externalId": "task-scheduler",
+  "title": "Task Scheduler",
+  "url": "https://leetcode.com/problems/task-scheduler/",
+  "difficulty": "Medium",
+  "topic": "Heap"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "4A",
+  "title": "Watermelon",
+  "url": "https://codeforces.com/problemset/problem/4/A",
+  "difficulty": "800",
+  "topic": "math"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "71A",
+  "title": "Way Too Long Words",
+  "url": "https://codeforces.com/problemset/problem/71/A",
+  "difficulty": "800",
+  "topic": "strings"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "231A",
+  "title": "Team",
+  "url": "https://codeforces.com/problemset/problem/231/A",
+  "difficulty": "800",
+  "topic": "greedy"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "158A",
+  "title": "Next Round",
+  "url": "https://codeforces.com/problemset/problem/158/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "50A",
+  "title": "Domino piling",
+  "url": "https://codeforces.com/problemset/problem/50/A",
+  "difficulty": "800",
+  "topic": "math"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "282A",
+  "title": "Bit++",
+  "url": "https://codeforces.com/problemset/problem/282/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "112A",
+  "title": "Petya and Strings",
+  "url": "https://codeforces.com/problemset/problem/112/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "263A",
+  "title": "Beautiful Matrix",
+  "url": "https://codeforces.com/problemset/problem/263/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "339A",
+  "title": "Helpful Maths",
+  "url": "https://codeforces.com/problemset/problem/339/A",
+  "difficulty": "800",
+  "topic": "strings"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "266A",
+  "title": "Stones on the Table",
+  "url": "https://codeforces.com/problemset/problem/266/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "281A",
+  "title": "Word Capitalization",
+  "url": "https://codeforces.com/problemset/problem/281/A",
+  "difficulty": "800",
+  "topic": "strings"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "546A",
+  "title": "Soldier and Bananas",
+  "url": "https://codeforces.com/problemset/problem/546/A",
+  "difficulty": "800",
+  "topic": "math"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "116A",
+  "title": "Tram",
+  "url": "https://codeforces.com/problemset/problem/116/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "41A",
+  "title": "Translation",
+  "url": "https://codeforces.com/problemset/problem/41/A",
+  "difficulty": "800",
+  "topic": "strings"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "617A",
+  "title": "Elephant",
+  "url": "https://codeforces.com/problemset/problem/617/A",
+  "difficulty": "800",
+  "topic": "math"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "791A",
+  "title": "Bear and Big Brother",
+  "url": "https://codeforces.com/problemset/problem/791/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "734A",
+  "title": "Anton and Danik",
+  "url": "https://codeforces.com/problemset/problem/734/A",
+  "difficulty": "800",
+  "topic": "strings"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "977A",
+  "title": "Wrong Subtraction",
+  "url": "https://codeforces.com/problemset/problem/977/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "520A",
+  "title": "Pangram",
+  "url": "https://codeforces.com/problemset/problem/520/A",
+  "difficulty": "800",
+  "topic": "strings"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "467A",
+  "title": "George and Accommodation",
+  "url": "https://codeforces.com/problemset/problem/467/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "61A",
+  "title": "Ultra-Fast Mathematician",
+  "url": "https://codeforces.com/problemset/problem/61/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "268A",
+  "title": "Games",
+  "url": "https://codeforces.com/problemset/problem/268/A",
+  "difficulty": "800",
+  "topic": "brute force"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "271A",
+  "title": "Beautiful Year",
+  "url": "https://codeforces.com/problemset/problem/271/A",
+  "difficulty": "800",
+  "topic": "brute force"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "59A",
+  "title": "Word",
+  "url": "https://codeforces.com/problemset/problem/59/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "344A",
+  "title": "Magnets",
+  "url": "https://codeforces.com/problemset/problem/344/A",
+  "difficulty": "800",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "1A",
+  "title": "Theatre Square",
+  "url": "https://codeforces.com/problemset/problem/1/A",
+  "difficulty": "1000",
+  "topic": "math"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "118A",
+  "title": "String Task",
+  "url": "https://codeforces.com/problemset/problem/118/A",
+  "difficulty": "1000",
+  "topic": "implementation"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "69A",
+  "title": "Young Physicist",
+  "url": "https://codeforces.com/problemset/problem/69/A",
+  "difficulty": "1000",
+  "topic": "math"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "122A",
+  "title": "Lucky Division",
+  "url": "https://codeforces.com/problemset/problem/122/A",
+  "difficulty": "1000",
+  "topic": "brute force"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "479A",
+  "title": "Expression",
+  "url": "https://codeforces.com/problemset/problem/479/A",
+  "difficulty": "1000",
+  "topic": "math"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "580A",
+  "title": "Kefa and First Steps",
+  "url": "https://codeforces.com/problemset/problem/580/A",
+  "difficulty": "900",
+  "topic": "dp"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "26A",
+  "title": "Almost Prime",
+  "url": "https://codeforces.com/problemset/problem/26/A",
+  "difficulty": "900",
+  "topic": "number theory"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "160A",
+  "title": "Twins",
+  "url": "https://codeforces.com/problemset/problem/160/A",
+  "difficulty": "900",
+  "topic": "greedy"
+ },
+ {
+  "platform": "codeforces",
+  "externalId": "96A",
+  "title": "Football",
+  "url": "https://codeforces.com/problemset/problem/96/A",
+  "difficulty": "900",
+  "topic": "strings"
+ },
+ {
+  "platform": "codechef",
+  "externalId": "FLOW001",
+  "title": "Add Two Numbers",
+  "url": "https://www.codechef.com/problems/FLOW001",
+  "difficulty": null,
+  "topic": null
+ },
+ {
+  "platform": "codechef",
+  "externalId": "FLOW002",
+  "title": "Find Remainder",
+  "url": "https://www.codechef.com/problems/FLOW002",
+  "difficulty": null,
+  "topic": null
+ },
+ {
+  "platform": "codechef",
+  "externalId": "FLOW004",
+  "title": "First and Last Digit",
+  "url": "https://www.codechef.com/problems/FLOW004",
+  "difficulty": null,
+  "topic": null
+ },
+ {
+  "platform": "codechef",
+  "externalId": "FLOW006",
+  "title": "Sum of Digits",
+  "url": "https://www.codechef.com/problems/FLOW006",
+  "difficulty": null,
+  "topic": null
+ },
+ {
+  "platform": "codechef",
+  "externalId": "FLOW007",
+  "title": "Reverse The Number",
+  "url": "https://www.codechef.com/problems/FLOW007",
+  "difficulty": null,
+  "topic": null
+ },
+ {
+  "platform": "codechef",
+  "externalId": "FLOW016",
+  "title": "GCD and LCM",
+  "url": "https://www.codechef.com/problems/FLOW016",
+  "difficulty": null,
+  "topic": null
+ },
+ {
+  "platform": "codechef",
+  "externalId": "TEST",
+  "title": "Life, the Universe, and Everything",
+  "url": "https://www.codechef.com/problems/TEST",
+  "difficulty": null,
+  "topic": null
+ },
+ {
+  "platform": "codechef",
+  "externalId": "INTEST",
+  "title": "Enormous Input Test",
+  "url": "https://www.codechef.com/problems/INTEST",
+  "difficulty": null,
+  "topic": null
+ },
+ {
+  "platform": "codechef",
+  "externalId": "HS08TEST",
+  "title": "ATM",
+  "url": "https://www.codechef.com/problems/HS08TEST",
+  "difficulty": null,
+  "topic": null
+ }
+]

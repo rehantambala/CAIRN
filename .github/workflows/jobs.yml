@@ -1,0 +1,15 @@
+# Free scheduler. GitHub cron is best-effort (runs can be minutes late); every job tolerates delay.
+name: vector-jobs
+on:
+  schedule:
+    - cron: '*/10 * * * *'
+  workflow_dispatch:
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run all jobs
+        run: |
+          curl --fail --silent --show-error --max-time 120 -X POST \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            "${{ secrets.VECTOR_API_URL }}/api/jobs/all"

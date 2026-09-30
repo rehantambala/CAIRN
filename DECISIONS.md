@@ -1,0 +1,14 @@
+# Decisions and assumptions to confirm
+
+1. **Zero clamp on the rating term.** `max(0, rating − baseline)²/10`. With the unclamped formula CodeChef (125 problems, 1135, 17 contests) would be 1,522, not 1,100, and the baseline would not reach 12,604. The clamp is one constant in `domain/score.ts` (`CLAMP_RATING_TERM_AT_ZERO`). Confirm against the leaderboard with a rating below baseline.
+2. **Rounding.** Each platform total is floored (matches 2,102 and 392).
+3. **Smart Interviews, InterviewBit, HackerRank** are recorded contributions (manual or imported). No formula is invented. They are 71% of the current score; the UI says so.
+4. **Automatic verification is real only for Codeforces** (official API). LeetCode and CodeChef have no approved automatic route for personal submissions, so they use import plus a labelled MANUAL fallback. A day of only manual items is COMPLETE · MANUAL, never VERIFIED.
+5. **Quota objectives.** Daily items are per-platform quotas ("2 new accepted LeetCode problems") satisfied by any new accepted problem that local day; suggested problems are guidance. This avoids failing a day because a different good problem was solved.
+6. **Baseline mechanics.** Counts are derived as a base value (seed/import) plus events after `base_as_of`. Older acceptances are remembered (never re-suggested) but never double counted. For Codeforces, "Use synced history as the source of truth" sets the base to zero after a verified sync.
+7. **Target date is user-set and optional.** Without it, pace is INSUFFICIENT DATA. Projection is labelled a projection.
+8. **Home order.** NEXT comes before TODAY on the home page so the single next action is visible right after the score (the spec listed both orders).
+9. **Problem pool** is a committed list of real LeetCode/Codeforces problems with real URLs plus a few CodeChef codes. When a platform has no unsolved suggestion, the objective links to that platform's real practice page instead of inventing problems. Replace or extend `server/src/data/problems.json`.
+10. **Contest discovery.** Codeforces via the official API; LeetCode/CodeChef/HackerRank via clist.by when `CLIST_USERNAME`/`CLIST_API_KEY` are set, or a `contests.json` file. Codeforces `type: CF` is treated as rated.
+11. **Notifications** use Web Push with VAPID (no FCM needed). If push is not configured or there is no subscription, reminders are recorded as SKIPPED with the reason. They are never reported as delivered.
+12. **Design tokens.** The reference scale is display-oriented, so UI text uses 16/19px and the 35–219px sizes are reserved for display. `#E33529` is used only for large type, marks and fills (3.0:1 on the pink surface). Neue Montreal is a commercial font: add a licensed file, otherwise a Helvetica stack is used. Bayon is bundled via `@fontsource/bayon`.
