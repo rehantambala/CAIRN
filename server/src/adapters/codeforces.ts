@@ -47,7 +47,7 @@ const defaultFetch: Fetcher = async (url) => {
   const wait = lastCall + 2100 - Date.now();
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   lastCall = Date.now();
-  const res = await fetch(url, { headers: { 'User-Agent': 'vector-personal/1.0' } });
+  const res = await fetch(url, { headers: { 'User-Agent': 'vector-personal/1.0' }, signal: AbortSignal.timeout(15_000) });
   if (!res.ok && res.status !== 400) throw new Error(`Codeforces HTTP ${res.status}`);
   return res.json();
 };

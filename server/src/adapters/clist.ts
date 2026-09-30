@@ -32,7 +32,7 @@ export async function fetchClistContests(now = Date.now()): Promise<NormalizedCo
   const from = new Date(now - 6 * 3_600_000).toISOString().slice(0, 19);
   const url = `https://clist.by/api/v4/contest/?username=${encodeURIComponent(config.clistUser)}&api_key=${encodeURIComponent(config.clistKey)}` +
     `&resource=${Object.keys(HOSTS).filter((h) => h !== 'codeforces.com').join(',')}&end__gt=${from}&order_by=start&limit=100`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
   if (!res.ok) throw new Error(`clist HTTP ${res.status}`);
   const parsed = schema.parse(await res.json());
   return parsed.objects.map(normalizeClist).filter((x): x is NormalizedContest => x !== null);

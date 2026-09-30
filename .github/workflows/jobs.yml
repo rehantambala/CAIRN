@@ -7,9 +7,19 @@ on:
 jobs:
   run:
     runs-on: ubuntu-latest
+    timeout-minutes: 8
     steps:
+      - name: Wake the free server (cold start can take a minute or two)
+        run: |
+          for i in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "${{ secrets.VECTOR_API_URL }}/api/health" || true)
+            echo "attempt $i: HTTP $code"
+            [ "$code" = "200" ] && exit 0
+            sleep 10
+          done
+          exit 1
       - name: Run all jobs
         run: |
-          curl --fail --silent --show-error --max-time 120 -X POST \
+          curl --fail --silent --show-error --max-time 240 -X POST \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             "${{ secrets.VECTOR_API_URL }}/api/jobs/all"

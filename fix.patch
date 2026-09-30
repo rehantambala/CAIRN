@@ -1,0 +1,51 @@
+diff --git a/.github/workflows/jobs.yml b/.github/workflows/jobs.yml
+index db46ab4..df41173 100644
+--- a/.github/workflows/jobs.yml
++++ b/.github/workflows/jobs.yml
+@@ -7,9 +7,19 @@ on:
+ jobs:
+   run:
+     runs-on: ubuntu-latest
++    timeout-minutes: 8
+     steps:
++      - name: Wake the free server (cold start can take a minute or two)
++        run: |
++          for i in 1 2 3 4 5 6; do
++            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "${{ secrets.VECTOR_API_URL }}/api/health" || true)
++            echo "attempt $i: HTTP $code"
++            [ "$code" = "200" ] && exit 0
++            sleep 10
++          done
++          exit 1
+       - name: Run all jobs
+         run: |
+-          curl --fail --silent --show-error --max-time 120 -X POST \
++          curl --fail --silent --show-error --max-time 240 -X POST \
+             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+             "${{ secrets.VECTOR_API_URL }}/api/jobs/all"
+diff --git a/server/src/adapters/clist.ts b/server/src/adapters/clist.ts
+index aa7ab85..8483566 100644
+--- a/server/src/adapters/clist.ts
++++ b/server/src/adapters/clist.ts
+@@ -32,7 +32,7 @@ export async function fetchClistContests(now = Date.now()): Promise<NormalizedCo
+   const from = new Date(now - 6 * 3_600_000).toISOString().slice(0, 19);
+   const url = `https://clist.by/api/v4/contest/?username=${encodeURIComponent(config.clistUser)}&api_key=${encodeURIComponent(config.clistKey)}` +
+     `&resource=${Object.keys(HOSTS).filter((h) => h !== 'codeforces.com').join(',')}&end__gt=${from}&order_by=start&limit=100`;
+-  const res = await fetch(url);
++  const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+   if (!res.ok) throw new Error(`clist HTTP ${res.status}`);
+   const parsed = schema.parse(await res.json());
+   return parsed.objects.map(normalizeClist).filter((x): x is NormalizedContest => x !== null);
+diff --git a/server/src/adapters/codeforces.ts b/server/src/adapters/codeforces.ts
+index e381067..e8a8cf9 100644
+--- a/server/src/adapters/codeforces.ts
++++ b/server/src/adapters/codeforces.ts
+@@ -47,7 +47,7 @@ const defaultFetch: Fetcher = async (url) => {
+   const wait = lastCall + 2100 - Date.now();
+   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
+   lastCall = Date.now();
+-  const res = await fetch(url, { headers: { 'User-Agent': 'vector-personal/1.0' } });
++  const res = await fetch(url, { headers: { 'User-Agent': 'vector-personal/1.0' }, signal: AbortSignal.timeout(15_000) });
+   if (!res.ok && res.status !== 400) throw new Error(`Codeforces HTTP ${res.status}`);
+   return res.json();
+ };
