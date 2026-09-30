@@ -22,7 +22,7 @@ interface AwardsPayload {
 interface Analytics { contests: { title: string; platform: Platform; at: string; delta: number | null }[]; consistency: { consecutiveComplete: number } }
 
 const GLYPH: Record<DayState, string> = { COMPLETE: '✓', ACTIVE: 'Live', PARTIAL: 'Part', MISSED: '×', REST: '–' };
-const WORD: Record<DayState, string> = { COMPLETE: 'Done', ACTIVE: 'Today', PARTIAL: 'Partly', MISSED: 'Missed', REST: 'Rest' };
+const WORD: Record<DayState, string> = { COMPLETE: 'Complete', ACTIVE: 'Today', PARTIAL: 'Partial', MISSED: 'Missed', REST: 'Rest' };
 const WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const PLAT: Record<string, string> = { leetcode: 'LeetCode', codechef: 'CodeChef', codeforces: 'Codeforces' };
 
@@ -57,7 +57,7 @@ export function Log() {
 
   return (
     <>
-      <PageHead title="Log" sub={`${streakLine(streak)} ${doneDays} complete ${doneDays === 1 ? 'day' : 'days'} in ${monthTitle(cal.month).split(' ')[0]}.`} />
+      <PageHead title="Log" sub={`${streakLine(streak)} ${doneDays} ${doneDays === 1 ? 'day was' : 'days were'} completed in ${monthTitle(cal.month).split(' ')[0]}.`} />
 
       <Section kicker={monthTitle(cal.month)} label="Calendar">
         <div className="cal__head">
@@ -66,7 +66,7 @@ export function Log() {
             <button className="btn btn--ghost btn--sm" onClick={() => setMonth(cal.today.slice(0, 7))}>This month</button>
             <button className="btn btn--ghost btn--sm" onClick={() => setMonth(shiftMonth(cal.month, 1))} aria-label="Next month">Later →</button>
           </div>
-          <p className="small cal__legend">✓ done · Live = today in progress · Part = partly done · × missed · – rest</p>
+          <p className="small cal__legend">✓ complete · Live = today, in progress · Part = partly complete · × missed · – rest</p>
         </div>
         <div className="cal__grid" role="grid" aria-label={monthTitle(cal.month)}>
           <div role="row" className="cal__row cal__row--head">{WEEK.map((w) => <div key={w} role="columnheader" className="cal__wd">{w}</div>)}</div>
@@ -79,8 +79,8 @@ export function Log() {
                 const isToday = d === cal.today;
                 const future = d > cal.today;
                 const label = rec
-                  ? `${longDate(d)}. ${WORD[rec.state].toLowerCase()}${rec.requiredTotal ? `. ${rec.requiredDone} of ${rec.requiredTotal} required` : ''}${rec.state === 'COMPLETE' && !rec.verified ? '. self-marked' : ''}`
-                  : `${longDate(d)}. ${future ? 'not yet' : 'no record'}`;
+                  ? `${longDate(d)}. ${WORD[rec.state].toLowerCase()}${rec.requiredTotal ? `. ${rec.requiredDone} of ${rec.requiredTotal} required` : ''}${rec.state === 'COMPLETE' && !rec.verified ? '. recorded by you' : ''}`
+                  : `${longDate(d)}. ${future ? 'upcoming' : 'no record'}`;
                 return (
                   <div role="gridcell" key={c} className="cal__td">
                     <button
@@ -101,13 +101,13 @@ export function Log() {
 
       {date && <DayPanel date={date} onClose={() => nav('/log')} />}
 
-      <Section kicker={`Earned · ${earned.length}`} tone="deep" label="Awards">
+      <Section kicker={`Milestones reached · ${earned.length}`} tone="deep" label="Awards">
         {earned.length === 0
-          ? <p className="statement">The first one is seven verified days.</p>
+          ? <p className="statement">The first milestone is seven verified days.</p>
           : <ul className="awards">{earned.map((a) => <Award key={a.key} k={a.key} earned />)}</ul>}
         {open.length > 0 && (
           <>
-            <p className="kicker" style={{ margin: 'var(--space-10) 0 var(--space-5)' }}>Still ahead · {open.length}</p>
+            <p className="kicker" style={{ margin: 'var(--space-10) 0 var(--space-5)' }}>Outstanding · {open.length}</p>
             <ul className="awards">{open.map((a) => <Award key={a.key} k={a.key} earned={false} />)}</ul>
           </>
         )}
@@ -140,7 +140,7 @@ function Award({ k, earned }: { k: string; earned: boolean }) {
       <span className="display award__fig">{m.figure}</span>
       <span className="award__unit">{m.unit}</span>
       <span className="award__title">{m.title}</span>
-      <span className="state">{earned ? '✓ Earned' : '○ Not yet'}</span>
+      <span className="state">{earned ? '✓ Reached' : '○ Outstanding'}</span>
     </li>
   );
 }
@@ -164,9 +164,9 @@ function DayPanel({ date, onClose }: { date: string; onClose: () => void }) {
           : (
             <div className="stack-lg" style={{ marginTop: 'var(--space-8)' }}>
               <div className="grid-3">
-                <div><p className="kicker">State</p><p className="statement" style={{ marginTop: 'var(--space-3)' }}>{data.state ? WORD[data.state] : ''}{data.state === 'COMPLETE' ? (data.verified ? ' · verified' : ' · self-marked') : ''}</p></div>
-                <div><p className="kicker">What the day was worth</p><p className="statement" style={{ marginTop: 'var(--space-3)' }}>{signed(data.target ?? 0)}</p></div>
-                <div><p className="kicker">Score actually moved</p><p className="statement" style={{ marginTop: 'var(--space-3)' }}>{data.scoreDelta === null || data.scoreDelta === undefined ? 'Still open' : signed(data.scoreDelta)}</p></div>
+                <div><p className="kicker">State</p><p className="statement" style={{ marginTop: 'var(--space-3)' }}>{data.state ? WORD[data.state] : ''}{data.state === 'COMPLETE' ? (data.verified ? ' · verified' : ' · recorded by you') : ''}</p></div>
+                <div><p className="kicker">Points the day could add</p><p className="statement" style={{ marginTop: 'var(--space-3)' }}>{signed(data.target ?? 0)}</p></div>
+                <div><p className="kicker">Change in score</p><p className="statement" style={{ marginTop: 'var(--space-3)' }}>{data.scoreDelta === null || data.scoreDelta === undefined ? 'Day not yet closed' : signed(data.scoreDelta)}</p></div>
               </div>
               <div className="grid-2">
                 <ItemList title="Required" items={data.required ?? []} />
@@ -183,7 +183,7 @@ function DayPanel({ date, onClose }: { date: string; onClose: () => void }) {
                 <div>
                   <p className="kicker">Problems</p>
                   {(data.problems ?? []).length === 0 ? <p className="body" style={{ marginTop: 'var(--space-3)' }}>None accepted.</p> : (
-                    <ul className="ledger" style={{ marginTop: 'var(--space-3)' }}>{data.problems!.map((p) => <li key={p.platform + p.id} className="ledger__row"><span className="ledger__k">{PLAT[p.platform] ?? p.platform}</span><span className="ledger__v">{p.url ? <a href={p.url} target="_blank" rel="noreferrer noopener">{p.title}</a> : p.title}</span><span className="state">{p.source === 'MANUAL' ? '□ Self-marked' : '✓ Verified'}</span></li>)}</ul>
+                    <ul className="ledger" style={{ marginTop: 'var(--space-3)' }}>{data.problems!.map((p) => <li key={p.platform + p.id} className="ledger__row"><span className="ledger__k">{PLAT[p.platform] ?? p.platform}</span><span className="ledger__v">{p.url ? <a href={p.url} target="_blank" rel="noreferrer noopener">{p.title}</a> : p.title}</span><span className="state">{p.source === 'MANUAL' ? '○ Recorded by you' : '✓ Verified'}</span></li>)}</ul>
                   )}
                 </div>
               </div>
@@ -204,7 +204,7 @@ function ItemList({ title, items, showVerification }: { title: string; items: It
             <li key={i.id} className="ledger__row">
               <span className="ledger__k">{i.platform ?? 'Rest'}</span>
               <span className="ledger__v">{i.type === 'PROBLEM_QUOTA' ? `${i.quota} problem${i.quota === 1 ? '' : 's'} · ${i.completedCount} done` : i.title}</span>
-              {showVerification ? <span className="state">{i.verification === 'VERIFIED' ? '✓ Verified' : '□ Self-marked'}</span> : <span />}
+              {showVerification ? <span className="state">{i.verification === 'VERIFIED' ? '✓ Verified' : '○ Recorded by you'}</span> : <span />}
             </li>
           ))}
         </ul>

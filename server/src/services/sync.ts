@@ -29,11 +29,11 @@ async function setStatus(db: Db, userId: string, platform: Platform, status: str
 export async function syncPlatform(userId: string, platform: Platform, now = Date.now(), adapter: PlatformAdapter = ADAPTERS[platform]): Promise<SyncReport> {
   const rep: SyncReport = { platform, ok: false, message: '', newProblems: 0, newParticipations: 0 };
   if (adapter.capability !== 'AUTOMATIC' || !adapter.getSubmissions) {
-    rep.message = 'No automatic route. Use import.';
+    rep.message = 'No automatic route exists for this platform. Use the import form.';
     return rep;
   }
   const acct = (await pool.query('select username from platform_accounts where user_id=$1 and platform=$2', [userId, platform])).rows[0];
-  if (!acct?.username) { rep.message = 'Not connected. Add your handle in Settings.'; return rep; }
+  if (!acct?.username) { rep.message = 'Not connected. Enter your handle in Settings.'; return rep; }
   const handle: string = acct.username;
 
   let profile, submissions, history, contests;
@@ -44,7 +44,7 @@ export async function syncPlatform(userId: string, platform: Platform, now = Dat
     contests = adapter.getContests ? await adapter.getContests() : [];
   } catch (e: any) {
     await setStatus(pool, userId, platform, 'ERROR', String(e?.message ?? e).slice(0, 200), false);
-    rep.message = `SYNC ERROR: ${e?.message ?? e}`;
+    rep.message = `Synchronisation failed: ${e?.message ?? e}`;
     return rep;
   }
 

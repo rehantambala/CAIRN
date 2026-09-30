@@ -12,9 +12,9 @@ export function countdown(ms: number): string {
 }
 
 export function ago(iso: string | null, now = Date.now()): string {
-  if (!iso) return 'never';
+  if (!iso) return 'not yet';
   const ms = now - new Date(iso).getTime();
-  if (ms < 60_000) return 'just now';
+  if (ms < 60_000) return 'moments ago';
   const m = Math.floor(ms / 60_000);
   if (m < 60) return `${m} min ago`;
   const h = Math.floor(m / 60);

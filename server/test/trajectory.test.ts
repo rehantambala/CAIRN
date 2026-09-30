@@ -51,6 +51,6 @@ describe('trajectory', () => {
   it('reached objective is complete', () => {
     const t = computeTrajectory({ snapshots: [{ at: at(TODAY), score: 25_100 }], now: NOW, targetDate: '2027-03-31' });
     expect(t.reached).toBe(true);
-    expect(t.note).toBe('OBJECTIVE COMPLETED');
+    expect(t.note).toBe('The objective has been reached.');
   });
 });

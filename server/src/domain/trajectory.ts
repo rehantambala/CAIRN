@@ -80,13 +80,13 @@ export function computeTrajectory(opts: {
   };
 
   if (current >= target) {
-    return { ...base, status: 'AHEAD', velocity: null, projectedDate: null, note: 'OBJECTIVE COMPLETED' };
+    return { ...base, status: 'AHEAD', velocity: null, projectedDate: null, note: 'The objective has been reached.' };
   }
 
   if (historyDays < MIN_HISTORY_DAYS) {
     return {
       ...base, status: 'INSUFFICIENT DATA', velocity: null, projectedDate: null,
-      note: `${historyDays} of ${MIN_HISTORY_DAYS} days of history needed`,
+      note: `${historyDays} of ${MIN_HISTORY_DAYS} days of history are needed.`,
     };
   }
 
@@ -100,7 +100,7 @@ export function computeTrajectory(opts: {
   if (requiredVelocity === null) {
     return {
       ...base, status: 'INSUFFICIENT DATA', velocity, projectedDate,
-      note: 'Set a target date to measure pace',
+      note: 'Set a target date so that pace can be measured.',
     };
   }
 
@@ -108,7 +108,7 @@ export function computeTrajectory(opts: {
   const status: TrajectoryStatus = ratio >= 1.1 ? 'AHEAD' : ratio >= 0.9 ? 'ON PACE' : 'PACE DEFICIT';
   return {
     ...base, status, velocity, projectedDate,
-    note: `${velocity.toFixed(1)} pts/day recent, ${requiredVelocity.toFixed(1)} pts/day required`,
+    note: `Recent rate ${velocity.toFixed(1)} points a day; required rate ${requiredVelocity.toFixed(1)} points a day.`,
   };
 }
 

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { post } from '../api';
+import { Ball } from '../components/Ball';
 
 export function Login({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState('');
@@ -9,16 +10,18 @@ export function Login({ onDone }: { onDone: () => void }) {
   async function submit(e: FormEvent) {
     e.preventDefault(); setBusy(true); setErr(null);
     try { await post('/auth/login', { email, password }); onDone(); }
-    catch (x: any) { setErr(x.code === 'INVALID_CREDENTIALS' ? 'Those details do not match.' : x.status === 429 ? 'Too many tries. Wait a few minutes.' : 'Sign-in failed. Try again.'); }
+    catch (x: any) { setErr(x.code === 'INVALID_CREDENTIALS' ? 'The details entered do not match our records.' : x.status === 429 ? 'Too many attempts. Please wait a few minutes.' : 'Sign-in failed. Please try again.'); }
     finally { setBusy(false); }
   }
   return (
-    <main id="main" className="login block block-pink">
+    <main id="main" className="login block block-sky">
+      <Ball size={96} rotate={-12} style={{ left: '7%', top: '12%' }} />
+      <Ball size={60} rotate={18} className="ball--far" style={{ right: '8%', bottom: '14%' }} />
       <div className="frame login__grid">
         <div className="enter">
           <p className="kicker">VECTOR</p>
           <h1 className="display fig-hero login__fig">25,000<span className="mark">+</span></h1>
-          <p className="lead">One number. One next action. Every day.</p>
+          <p className="lead">A single score, a single next action, and the reason for it.</p>
         </div>
         <form onSubmit={submit} className="login__form enter" style={{ animationDelay: '0.15s' }} aria-label="Sign in">
           <div className="field"><label htmlFor="em">Email</label><input id="em" className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>

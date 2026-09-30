@@ -17,7 +17,7 @@ export function ScoreAnnouncer({ value }: { value: number }) {
   useEffect(() => {
     if (prev.current !== value && ref.current) {
       const d = value - prev.current;
-      ref.current.textContent = `Score ${fmt(value)}, ${d >= 0 ? 'plus' : 'minus'} ${Math.abs(d)}`;
+      ref.current.textContent = `The score is ${fmt(value)}, a change of ${d >= 0 ? 'plus' : 'minus'} ${Math.abs(d)}.`;
     }
     prev.current = value;
   }, [value]);
@@ -28,7 +28,7 @@ export function ScoreAnnouncer({ value }: { value: number }) {
 export function GoalBar({ current, target, milestones }: { current: number; target: number; milestones: number[] }) {
   const pct = Math.min(100, (current / target) * 100);
   return (
-    <div role="img" aria-label={`${fmt(current)} of ${fmt(target)}. ${Math.floor(pct)} percent.`}>
+    <div role="img" aria-label={`${fmt(current)} of ${fmt(target)}. ${Math.floor(pct)} per cent.`}>
       <div className="gbar" aria-hidden="true">
         <div className="gbar__fill" style={{ width: `${pct}%` }} />
         {milestones.map((m) => <span key={m} className={`gbar__tick${m >= target ? ' is-target' : ''}`} style={{ left: `${Math.min(100, (m / target) * 100)}%` }} />)}
@@ -54,17 +54,17 @@ export function NextBlock({ next, items, delta, now, fetchedAt }: { next: Next; 
   const complete = next.kind === 'COMPLETE';
   const firstOpen = items.find((i) => !i.completed && i.type === 'PROBLEM_QUOTA' && i.suggestions.length > 0);
   const url = firstOpen?.suggestions[0]?.url ?? firstOpen?.practiceUrl ?? null;
-  const headline = (next.target ?? next.title).replace(/^Start with\s+/i, '').replace(/^Solve\s+/i, '');
+  const headline = (next.target ?? next.title).replace(/^Begin with\s+/i, '').replace(/^Solve\s+/i, '');
 
   if (complete) {
     return (
       <div className="next next--done">
-        <p className="kicker">Next</p>
-        <h2 className="display fig-2xl next__done">{doneHeadline(delta, true).replace(/\.$/, '')}.</h2>
+        <p className="kicker">Next action</p>
+        <h2 className="display fig-2xl next__done">{doneHeadline(delta, true)}</h2>
         <p className="lead">{next.reason}</p>
         <div className="btn-row" style={{ marginTop: 'var(--space-8)' }}>
-          <Link to="/log" className="btn btn--big">See your log</Link>
-          <Link to="/path" className="btn btn--ghost btn--big">Check the path</Link>
+          <Link to="/log" className="btn btn--big">Open the log</Link>
+          <Link to="/path" className="btn btn--ghost btn--big">Open the path</Link>
         </div>
       </div>
     );
@@ -72,11 +72,11 @@ export function NextBlock({ next, items, delta, now, fetchedAt }: { next: Next; 
 
   return (
     <div className="next">
-      <p className="kicker">Do this next</p>
+      <p className="kicker">Next action</p>
       {isContest && left !== null && left > 0 ? (
         <>
-          <p className="lead next__pre">{next.title} starts in</p>
-          <p className="display fig-hero mark next__count" aria-label={`Starts in ${countdown(left)}`}>{countdown(left)}</p>
+          <p className="lead next__pre">{next.title} begins in</p>
+          <p className="display fig-hero mark next__count" aria-label={`Begins in ${countdown(left)}`}>{countdown(left)}</p>
         </>
       ) : (
         <h2 className="statement statement--wide next__title">{headline}</h2>
@@ -87,9 +87,9 @@ export function NextBlock({ next, items, delta, now, fetchedAt }: { next: Next; 
         {isContest
           ? <Link to={next.href} className="btn btn--big">Open the contest</Link>
           : url
-            ? <a href={url} target="_blank" rel="noreferrer noopener" className="btn btn--big">Start now<span className="sr-only"> (opens in a new tab)</span></a>
-            : <Link to={next.href} className="btn btn--big">Open today</Link>}
-        {!isContest && <a href="#today-list" className="link-arrow">Or see all of today</a>}
+            ? <a href={url} target="_blank" rel="noreferrer noopener" className="btn btn--big">Begin now<span className="sr-only"> (opens in a new tab)</span></a>
+            : <Link to={next.href} className="btn btn--big">Open today’s list</Link>}
+        {!isContest && <a href="#today-list" className="link-arrow">View the full list</a>}
       </div>
     </div>
   );

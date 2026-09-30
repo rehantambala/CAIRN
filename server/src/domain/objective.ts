@@ -132,10 +132,10 @@ export function generateObjective(state: ObjectiveState): Objective {
   if (state.consecutiveComplete >= 6 && committedToday.length === 0) {
     return {
       date: state.date, isRest: true, targetScoreDelta: 0,
-      rationale: [`${state.consecutiveComplete} consecutive complete days. Recovery day scheduled; it does not break consistency.`],
+      rationale: [`${state.consecutiveComplete} consecutive complete days. A rest day is scheduled; it does not interrupt the record.`],
       items: [{
         type: 'REST', platform: null, contestId: null, title: 'Rest',
-        reason: `${state.consecutiveComplete} consecutive verified days`,
+        reason: `${state.consecutiveComplete} consecutive days are complete. Recovery is scheduled because sustained output depends on it, and it does not interrupt your record.`,
         required: false, quota: 0, minutes: 0, points: 0, suggestions: [], practiceUrl: null, guidance: null,
       }],
     };
@@ -144,12 +144,12 @@ export function generateObjective(state: ObjectiveState): Objective {
   // Time budget, adapted to demonstrated consistency and pace.
   let budget = state.baseMinutes ?? 120;
   if (state.executionRate !== null) {
-    if (state.executionRate < 50) { budget = Math.round(budget * 0.7); rationale.push(`Execution rate ${state.executionRate}%. Load reduced to rebuild consistency.`); }
+    if (state.executionRate < 50) { budget = Math.round(budget * 0.7); rationale.push(`Execution rate is ${state.executionRate} per cent. The load has been reduced so that consistency can be rebuilt.`); }
     else if (state.executionRate >= 85) budget = Math.round(budget * 1.15);
   }
   if (state.trajectory.status === 'PACE DEFICIT' && (state.executionRate ?? 0) >= 70) {
     budget += 20;
-    rationale.push('Pace deficit with strong consistency. Volume increased.');
+    rationale.push('The pace is below the required rate, but consistency is strong. Volume has been increased.');
   }
 
   // Contests today come first: they carry the +50 and the only route to rating movement.
@@ -161,7 +161,7 @@ export function generateObjective(state: ObjectiveState): Objective {
       items.push({
         type: 'CONTEST_PREP', platform: c.platform, contestId: c.id,
         title: 'Contest preparation',
-        reason: `Preparation block before ${c.title}, starting ${hourMinute(c.startAt - 30 * 60_000, state.tz)}.`,
+        reason: `Preparation for ${c.title} begins at ${hourMinute(c.startAt - 30 * 60_000, state.tz)}, so that the rated attempt starts from a prepared position.`,
         required: false, quota: 1, minutes: 30, points: 0, suggestions: [], practiceUrl: null, guidance: null,
       });
       budget -= 30 + Math.min(dur, 120);
@@ -170,8 +170,8 @@ export function generateObjective(state: ObjectiveState): Objective {
       type: 'CONTEST', platform: c.platform, contestId: c.id,
       title: `${PLATFORM_LABEL[c.platform]} ${c.title}`,
       reason: c.committed
-        ? `Committed. Participation adds ${perContest} points deterministically; rating outcome is uncertain.`
-        : `Rated opportunity at ${hourMinute(c.startAt, state.tz)}. Participation adds ${perContest} points. Commit to make it required.`,
+        ? `You are committed. Participation adds ${perContest} points with certainty; the rating outcome is not certain.`
+        : `A rated contest begins at ${hourMinute(c.startAt, state.tz)}. Participation adds ${perContest} points with certainty. Committing makes it a required item and enables reminders.`,
       required: c.committed, quota: 1, minutes: dur, points: perContest, suggestions: [],
       practiceUrl: c.contestUrl, guidance: null,
     });
@@ -207,11 +207,11 @@ export function generateObjective(state: ObjectiveState): Objective {
     const q = quotas[p];
     if (q <= 0) continue;
     const m = marginal(p, state.scoreInputs[p].rating);
-    const reasons = [`Each accepted problem adds ${m.perProblem} points deterministically.`];
+    const reasons = [`Each accepted problem adds ${m.perProblem} points with certainty.`];
     if (m.ratingToThreshold > 0) {
-      reasons.push(`Rating ${state.scoreInputs[p].rating} is ${m.ratingToThreshold} below the ${PLATFORM_RULES[p].ratingBase} scoring threshold; rating gains below it add 0 points.`);
+      reasons.push(`Your rating of ${state.scoreInputs[p].rating} is ${m.ratingToThreshold} below the ${PLATFORM_RULES[p].ratingBase} at which rating gains begin to score, so problems are the dependable source of points here until then.`);
     } else {
-      reasons.push(`Reaching ${state.scoreInputs[p].rating + 25} would add ${Math.round(ratingEffect(p, state.scoreInputs[p].rating, state.scoreInputs[p].rating + 25))} points (hypothetical).`);
+      reasons.push(`A rating of ${state.scoreInputs[p].rating + 25} would add ${Math.round(ratingEffect(p, state.scoreInputs[p].rating, state.scoreInputs[p].rating + 25))} points. That is a projection, not a certainty.`);
     }
     const suggestions = selectProblems(state.pool, state.solved, p, state.scoreInputs[p].rating, q + 2, state.date);
     const lo = state.scoreInputs[p].rating, hi = lo + 200;
@@ -224,7 +224,7 @@ export function generateObjective(state: ObjectiveState): Objective {
       practiceUrl: PRACTICE_URL[p],
       guidance: suggestions.length >= q
         ? null
-        : `Pool has ${suggestions.length} unsolved suggestion${suggestions.length === 1 ? '' : 's'}. Choose unsolved problems rated about ${lo}–${hi}.`,
+        : `The pool holds ${suggestions.length} unsolved suggestion${suggestions.length === 1 ? '' : 's'}. Select unsolved problems rated about ${lo}–${hi}.`,
     });
   }
 
@@ -234,13 +234,13 @@ export function generateObjective(state: ObjectiveState): Objective {
   if (t.requiredVelocity !== null) {
     const volume = items.filter((i) => i.type === 'PROBLEM_QUOTA').reduce((a, i) => a + i.points, 0);
     rationale.push(
-      `Required pace ${t.requiredVelocity.toFixed(0)} pts/day. Today's problem volume adds ${volume} deterministically; the remainder depends on rating, which is uncertain.`,
+      `The required pace is ${t.requiredVelocity.toFixed(0)} points a day. Today's problems add ${volume} with certainty; the remainder depends on rating, which is not certain.`,
     );
   }
-  if (score.overall >= 25_000) rationale.push('25,000+ reached. Tracking continues beyond the threshold.');
+  if (score.overall >= 25_000) rationale.push('The target of 25,000+ has been reached. Tracking continues beyond it.');
 
   if (items.length === 0) {
-    rationale.push('No unsolved problems in the pool and no contest today.');
+    rationale.push('The pool holds no unsolved problems and no rated contest is scheduled today.');
   }
   return { date: state.date, isRest: false, items, targetScoreDelta, rationale };
 }
@@ -273,9 +273,9 @@ export function pickNext(
     return {
       kind: 'CONTEST', label: 'NEXT',
       title: `${PLATFORM_LABEL[soon.platform]} ${soon.title}`,
-      detail: live ? 'Rated contest · LIVE' : `Rated contest · starts in ${formatCountdown(soon.startAt - now)} (${hourMinute(soon.startAt, tz)})`,
-      reason: `Participation adds ${m?.perContest ?? 50} points deterministically and is the only route to rating movement, which carries the largest score effect.`,
-      target: soon.committed ? 'Enter prepared. Solve as many as you can.' : 'Commit to schedule reminders.',
+      detail: live ? 'Rated contest · in progress' : `Rated contest · begins in ${formatCountdown(soon.startAt - now)}, at ${hourMinute(soon.startAt, tz)}`,
+      reason: `Participation adds ${m?.perContest ?? 50} points with certainty. It is also the only route to rating movement, which has the largest effect on the score.`,
+      target: soon.committed ? 'Enter prepared.' : 'Commit, so that reminders are scheduled.',
       href: `/contests?focus=${encodeURIComponent(soon.id)}`,
       startsInMs: live ? 0 : soon.startAt - now, contestId: soon.id,
     };
@@ -289,10 +289,10 @@ export function pickNext(
       kind: 'ITEM', label: 'NEXT',
       title: it.title,
       detail: it.type === 'PROBLEM_QUOTA'
-        ? `${it.quota - open.done} of ${it.quota} problems remaining`
+        ? `${it.quota - open.done} of ${it.quota} problems remain`
         : it.title,
       reason: it.reason,
-      target: it.suggestions[0] ? `Start with ${it.suggestions[0].title}` : null,
+      target: it.suggestions[0] ? `Begin with ${it.suggestions[0].title}` : null,
       href: '/today', startsInMs: null, contestId: it.contestId,
     };
   }
@@ -304,16 +304,16 @@ export function pickNext(
       return {
         kind: 'COMMIT', label: 'NEXT',
         title: `${PLATFORM_LABEL[upcoming.platform]} ${upcoming.title}`,
-        detail: `Objective completed · next rated opportunity in ${formatCountdown(upcoming.startAt - now)}`,
-        reason: 'Commit to schedule preparation and reminders.',
+        detail: `Today's objective is complete · the next rated contest begins in ${formatCountdown(upcoming.startAt - now)}`,
+        reason: 'Committing schedules preparation and reminders.',
         target: null, href: `/contests?focus=${encodeURIComponent(upcoming.id)}`,
         startsInMs: upcoming.startAt - now, contestId: upcoming.id,
       };
     }
     return {
-      kind: 'COMPLETE', label: 'NEXT', title: 'Objective completed',
-      detail: 'Execution recorded. Tomorrow\'s objective generates at the day boundary.',
-      reason: 'All required actions are verified.', target: null, href: '/calendar',
+      kind: 'COMPLETE', label: 'NEXT', title: 'Objective complete',
+      detail: 'Execution is recorded. Tomorrow\'s objective is generated at midnight.',
+      reason: 'Every required item is complete.', target: null, href: '/calendar',
       startsInMs: null, contestId: null,
     };
   }
@@ -322,16 +322,16 @@ export function pickNext(
     return {
       kind: 'COMMIT', label: 'NEXT',
       title: `${PLATFORM_LABEL[upcoming.platform]} ${upcoming.title}`,
-      detail: `Rest day · next rated opportunity in ${formatCountdown(upcoming.startAt - now)}`,
-      reason: 'No required work today. Commit to the next rated opportunity.',
+      detail: `Rest day · the next rated contest begins in ${formatCountdown(upcoming.startAt - now)}`,
+      reason: 'No work is required today. Committing to the next rated contest schedules preparation and reminders.',
       target: null, href: `/contests?focus=${encodeURIComponent(upcoming.id)}`,
       startsInMs: upcoming.startAt - now, contestId: upcoming.id,
     };
   }
   return {
     kind: 'EMPTY', label: 'NEXT', title: 'Nothing scheduled',
-    detail: 'No required work and no upcoming rated contest.',
-    reason: 'Sync platforms or add problems to the pool.', target: null, href: '/settings',
+    detail: 'No work is required and no rated contest is upcoming.',
+    reason: 'Synchronise a platform or add problems to the pool.', target: null, href: '/settings',
     startsInMs: null, contestId: null,
   };
 }

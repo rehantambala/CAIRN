@@ -14,14 +14,14 @@ export function describeEvent(e: { event_type: string; platform: string | null; 
   const p = e.payload_json ?? {};
   const plat = e.platform ? PLATFORM_LABEL[e.platform as Platform] : '';
   switch (e.event_type) {
-    case 'PROBLEM_ACCEPTED': return `${plat} problem accepted${p.source === 'MANUAL' ? ' (manual)' : ''}`;
-    case 'CONTEST_PARTICIPATED': return `${plat} contest participation recorded`;
-    case 'RATING_CHANGED': return `${plat} rating ${p.from ?? '—'} → ${p.rating}`;
-    case 'SCORE_CHANGED': return `Score ${p.delta >= 0 ? '+' : ''}${p.delta} → ${Number(p.to).toLocaleString('en-US')}`;
-    case 'DAILY_OBJECTIVE_COMPLETED': return p.verified ? 'Objective completed · VERIFIED' : 'Objective completed · MANUAL';
-    case 'DAILY_OBJECTIVE_MISSED': return `Objective ${p.state === 'PARTIAL' ? 'partial' : 'missed'} · ${p.done} of ${p.total}`;
-    case 'AWARD_ACHIEVED': return `Award: ${AWARD_DEFINITIONS.find((a) => a.key === e.platform || a.key === (e as any).source_id)?.title ?? 'milestone'}`;
-    case 'PLATFORM_SYNCED': return p.seed ? null : `${plat} synced`;
+    case 'PROBLEM_ACCEPTED': return `${plat}: a problem was accepted${p.source === 'MANUAL' ? ' (recorded by you)' : ''}.`;
+    case 'CONTEST_PARTICIPATED': return `${plat}: contest participation was recorded.`;
+    case 'RATING_CHANGED': return `${plat}: rating moved from ${p.from ?? '—'} to ${p.rating}.`;
+    case 'SCORE_CHANGED': return `The score changed by ${p.delta >= 0 ? '+' : '−'}${Math.abs(p.delta)}, to ${Number(p.to).toLocaleString('en-US')}.`;
+    case 'DAILY_OBJECTIVE_COMPLETED': return p.verified ? 'Today\'s objective was completed and verified.' : 'Today\'s objective was completed and recorded by you.';
+    case 'DAILY_OBJECTIVE_MISSED': return `The objective closed ${p.state === 'PARTIAL' ? 'partly complete' : 'incomplete'}: ${p.done} of ${p.total} required items.`;
+    case 'AWARD_ACHIEVED': return `Milestone reached: ${AWARD_DEFINITIONS.find((a) => a.key === e.platform || a.key === (e as any).source_id)?.label ?? 'a new milestone'}.`;
+    case 'PLATFORM_SYNCED': return p.seed ? null : `${plat} was synchronised.`;
     default: return null;
   }
 }
@@ -36,7 +36,7 @@ export async function recentChanges(db: Db, userId: string, limit = 10) {
   const out: { at: string; text: string; type: string }[] = [];
   for (const r of rows) {
     const text = r.event_type === 'AWARD_ACHIEVED'
-      ? `Award earned: ${AWARD_DEFINITIONS.find((a) => a.key === r.source_id)?.figure ?? ''} ${AWARD_DEFINITIONS.find((a) => a.key === r.source_id)?.unit ?? ''}`.trim()
+      ? `Milestone reached: ${AWARD_DEFINITIONS.find((a) => a.key === r.source_id)?.label ?? 'a new milestone'}.`
       : describeEvent(r);
     if (text) out.push({ at: (r.created_at as Date).toISOString(), text, type: r.event_type });
     if (out.length >= limit) break;
@@ -171,7 +171,7 @@ export function simulate(current: ScoreInputs, sim: ScoreInputs, target = 25_000
   return {
     current: cur, simulated: res, delta: res.overall - cur.overall,
     remainingAfter: remaining(res.overall, target), target, effects,
-    note: 'DETERMINISTIC SCORE EFFECT of hypothetical values. Contest rating outcomes are UNCERTAIN and are not predicted.',
+    note: 'This is the arithmetic effect of the values entered. Contest rating outcomes are not predicted.',
   };
 }
 

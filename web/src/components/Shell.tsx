@@ -15,7 +15,7 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
       <a className="skip-link" href="#main">Skip to content</a>
       <header className="nav">
         <div className="frame nav__row">
-          <Link to="/" className="wordmark" aria-label="VECTOR, today">VECTOR</Link>
+          <Link to="/" className="wordmark" aria-label="VECTOR, home">VECTOR</Link>
           <nav aria-label="Primary" className="nav__links">
             {NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === '/'} className="nav__link">{label}</NavLink>)}
           </nav>
@@ -30,7 +30,7 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
 
       <footer className="footer">
         <div className="frame footer__row">
-          <span>12,604 → 25,000+</span>
+          <span>From 12,604 to 25,000+</span>
           <button className="nav__out" onClick={onLogout}>Sign out</button>
         </div>
       </footer>

@@ -39,3 +39,11 @@ Old links keep working (redirects): /today, /calendar, /awards, /trajectory, /sc
 2. Specific beats general. Small beats big.
 3. No guilt, no streak-shaming, no fake scarcity.
 4. Lines rotate deterministically per day (copy.ts), so the page does not change on re-render.
+
+
+## Revision: reference palette and language standard
+
+**Palette (from dontboardme.com).** Ground `#B7D7F5`, alternate band `#9FC6EC`, display ink `#3B6787`, running text `#1C3750` (8.2:1 on the ground), cream `#F3F3E9`, tennis-ball yellow `#DFE84A`. The display ink is used for large lettering only (4.0:1). Yellow appears only as decoration and on the dark band, where it reaches 9.2:1.
+Lettering: Bayon in capitals for figures, headings and buttons; Inter (stand-in for Neue Montreal) for running text. Buttons are cream-on-ink pills with a trailing dot. Hero, page heads, the next action and sign-in are centred, with 141 px section padding on wide screens.
+
+**Language.** Formal, precise British English. Every important statement answers what, when and why. Evidence over judgement, specificity over enthusiasm, explanation over persuasion. No slang, no motivational phrasing, no exclamation marks, no emoji, no praise that the data does not support. Spelling: synchronise, programme, per cent; 24-hour times.

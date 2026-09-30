@@ -33,7 +33,7 @@ export function Path() {
 
   return (
     <>
-      <PageHead title="Path" sub={`You are at ${fmt(t.current)}. ${fmt(t.remaining)} to go.`}>
+      <PageHead title="Path" sub={`Your score is ${fmt(t.current)}. ${fmt(t.remaining)} points remain to the target.`}>
         <div style={{ marginTop: 'var(--space-8)' }}>
           <GoalBar current={t.current} target={t.target} milestones={d.milestones.map((m) => m.value)} />
         </div>
@@ -45,44 +45,44 @@ export function Path() {
         <p className="body" style={{ marginTop: 'var(--space-4)' }}>{statusLine(t.status, t.historyDays)}</p>
         <div className="grid-3" style={{ marginTop: 'var(--space-9)' }}>
           <div>
-            <p className="kicker">Your recent pace</p>
-            <p className="display fig-2xl" style={{ marginTop: 'var(--space-4)' }}>{t.velocity === null ? '—' : n(t.velocity, 1)}<span className="unit"> / day</span></p>
-            {t.velocity === null && <p className="small" style={{ marginTop: 'var(--space-2)' }}>Needs 7 days of history.</p>}
+            <p className="kicker">Recent rate of gain</p>
+            <p className="display fig-2xl" style={{ marginTop: 'var(--space-4)' }}>{t.velocity === null ? '—' : n(t.velocity, 1)}<span className="unit"> a day</span></p>
+            {t.velocity === null && <p className="small" style={{ marginTop: 'var(--space-2)' }}>Seven days of history are required.</p>}
           </div>
           <div>
-            <p className="kicker">Pace the target date needs</p>
-            <p className="display fig-2xl" style={{ marginTop: 'var(--space-4)' }}>{t.requiredVelocity === null ? '—' : n(t.requiredVelocity, 1)}<span className="unit"> / day</span></p>
-            {!d.targetDate && <p className="small" style={{ marginTop: 'var(--space-2)' }}><Link to="/settings">Set a target date</Link> to measure this.</p>}
+            <p className="kicker">Rate the target date requires</p>
+            <p className="display fig-2xl" style={{ marginTop: 'var(--space-4)' }}>{t.requiredVelocity === null ? '—' : n(t.requiredVelocity, 1)}<span className="unit"> a day</span></p>
+            {!d.targetDate && <p className="small" style={{ marginTop: 'var(--space-2)' }}><Link to="/settings">Set a target date</Link> so that this can be measured.</p>}
           </div>
           <div>
-            <p className="kicker">At your pace, you arrive</p>
+            <p className="kicker">Projected arrival at the recent rate</p>
             <p className="display fig-xl" style={{ marginTop: 'var(--space-4)' }}>{t.projectedDate ? longDate(t.projectedDate) : '—'}</p>
-            <p className="small" style={{ marginTop: 'var(--space-2)' }}>A projection, not a promise.</p>
+            <p className="small" style={{ marginTop: 'var(--space-2)' }}>A projection, not a commitment.</p>
           </div>
         </div>
         <ul className="ledger" style={{ marginTop: 'var(--space-9)' }}>
           {([['Yesterday', t.gain1], ['Last 7 days', t.gain7], ['Last 14 days', t.gain14], ['Last 30 days', t.gain30]] as const).map(([k, v]) => (
-            <li key={k} className="ledger__row"><span className="ledger__k">{k}</span><span className="ledger__v">{v === null ? 'Not enough history yet' : ''}</span><span className="ledger__n">{v === null ? '—' : signed(v)}</span></li>
+            <li key={k} className="ledger__row"><span className="ledger__k">{k}</span><span className="ledger__v">{v === null ? 'Insufficient history' : ''}</span><span className="ledger__n">{v === null ? '—' : signed(v)}</span></li>
           ))}
         </ul>
         {an.data && an.data.velocity.length >= 2 && (
           <div style={{ marginTop: 'var(--space-8)' }}>
-            <p className="kicker" style={{ marginBottom: 'var(--space-4)' }}>Daily gain</p>
+            <p className="kicker" style={{ marginBottom: 'var(--space-4)' }}>Daily change</p>
             <Bars data={an.data.velocity.map((v) => ({ k: v.day.slice(5), v: v.gain }))} />
           </div>
         )}
       </Section>
 
-      <Section kicker="The line so far">
+      <Section kicker="Score history">
         {d.series.length < 2
-          ? <Empty title="Just getting started">The line appears once your score has more than one day of history. Nothing is back-filled.</Empty>
+          ? <Empty title="History begins today">A chart appears once the score has more than one day of history. Nothing is back-filled.</Empty>
           : <LineChart points={d.series.map((p) => ({ x: p.day, y: p.score }))} />}
         <ul className="ledger" style={{ marginTop: 'var(--space-8)' }}>
           {d.milestones.map((m) => (
             <li key={m.value} className="ledger__row">
               <span className="ledger__k">{shortK(m.value)}</span>
-              <span className="ledger__v">{m.value === 25000 ? 'The minimum. Tracking continues beyond it.' : ''}</span>
-              <span className="state">{m.reached ? '✓ Reached' : `${fmt(m.value - t.current)} to go`}</span>
+              <span className="ledger__v">{m.value === 25000 ? 'The minimum target. Tracking continues beyond it.' : ''}</span>
+              <span className="state">{m.reached ? '✓ Reached' : `${fmt(m.value - t.current)} points remain`}</span>
             </li>
           ))}
         </ul>
@@ -91,10 +91,10 @@ export function Path() {
       <Section kicker="Where your points come from" tone="deep">
         <h2 className="statement statement--wide">
           {d.reachability.fixedShareOfCurrent > 0.5
-            ? `${Math.round(d.reachability.fixedShareOfCurrent * 100)}% of your score sits on Smart Interviews, InterviewBit and HackerRank.`
-            : 'Ratings carry the biggest effect, because the rating term is squared.'}
+            ? `${Math.round(d.reachability.fixedShareOfCurrent * 100)} per cent of your score rests on Smart Interviews, InterviewBit and HackerRank.`
+            : 'Ratings carry the greatest effect, because the rating term is squared.'}
         </h2>
-        <p className="body" style={{ marginTop: 'var(--space-4)' }}>VECTOR records those three but does not model them, so their numbers are entered by you in Settings.</p>
+        <p className="body" style={{ marginTop: 'var(--space-4)' }}>VECTOR records those three but does not model them, so you enter their figures in Settings.</p>
         <ul className="ledger" style={{ marginTop: 'var(--space-8)' }}>
           {(an.data?.contribution ?? []).map((c) => (
             <li key={c.label} className="ledger__row">
@@ -118,9 +118,9 @@ export function Path() {
                     <div><dt>From problems</dt><dd>{fmt(c.parts.problems)}</dd></div>
                     <div><dt>From rating</dt><dd>{fmt(c.parts.rating)}</dd></div>
                     <div><dt>From contests</dt><dd>{fmt(c.parts.contests)}</dd></div>
-                    <div><dt>+25 rating would add</dt><dd>{signed(c.marginal.ratingPlus25)}</dd></div>
-                    <div><dt>+100 rating would add</dt><dd>{signed(c.marginal.ratingPlus100)}</dd></div>
-                    {c.marginal.ratingToThreshold > 0 && <div><dt>Rating points before it starts scoring</dt><dd>{c.marginal.ratingToThreshold}</dd></div>}
+                    <div><dt>A rise of 25 in rating adds</dt><dd>{signed(c.marginal.ratingPlus25)}</dd></div>
+                    <div><dt>A rise of 100 in rating adds</dt><dd>{signed(c.marginal.ratingPlus100)}</dd></div>
+                    {c.marginal.ratingToThreshold > 0 && <div><dt>Rating points before gains begin to score</dt><dd>{c.marginal.ratingToThreshold}</dd></div>}
                   </dl>
                 )}
               </span>
@@ -135,29 +135,29 @@ export function Path() {
             </li>
           ))}
         </ul>
-        <p className="small" style={{ marginTop: 'var(--space-4)' }}>Last touched: {s.sources.map((x) => `${x.label} ${ago(x.updatedAt, now)}`).join(' · ')}</p>
+        <p className="small" style={{ marginTop: 'var(--space-4)' }}>Most recent updates: {s.sources.map((x) => `${x.label} ${ago(x.updatedAt, now)}`).join(' · ')}</p>
       </Section>
 
-      <Section kicker="What if">
-        <h2 className="statement statement--wide">Change a number. See the score.</h2>
+      <Section kicker="Scenario">
+        <h2 className="statement statement--wide">Change a figure to see its effect on the score.</h2>
         <div style={{ marginTop: 'var(--space-9)' }}><Simulator base={s.inputs} target={s.target} /></div>
       </Section>
 
-      <Section kicker="What could close the gap" tone="ink">
+      <Section kicker="Closing the gap" tone="ink">
         <div className="grid-2">
           <div>
-            <p className="lead">If your ratings reach 1570 · 1400 · 920, your score becomes</p>
+            <p className="lead">Were your ratings to reach 1570, 1400 and 920, your score would be</p>
             <p className="display fig-hero mark" style={{ marginTop: 'var(--space-5)' }}>{fmt(d.reachability.projected)}</p>
           </div>
           <div style={{ alignSelf: 'end' }}>
-            <p className="body">That would cover {Math.round(d.reachability.coveredShare * 100)}% of the remaining {fmt(d.reachability.gap)}. It is a what-if, not a forecast: whether those ratings are reached is the uncertain part.</p>
+            <p className="body">That would cover {Math.round(d.reachability.coveredShare * 100)} per cent of the remaining {fmt(d.reachability.gap)} points. It is a scenario, not a forecast: whether those ratings are reached is the uncertain element.</p>
           </div>
         </div>
       </Section>
 
       <Section kicker="The formula" tone="deep">
         <details className="formula">
-          <summary>Show exactly how the score is computed</summary>
+          <summary>Show how the score is calculated</summary>
           <div className="stack" style={{ marginTop: 'var(--space-5)' }}>
             <p className="lead"><strong>LeetCode</strong> = problems × 10 + (max(0, rating − 1300))² ÷ 10 + contests × 50</p>
             <p className="lead"><strong>CodeChef</strong> = problems × 2 + (max(0, rating − 1200))² ÷ 10 + contests × 50</p>

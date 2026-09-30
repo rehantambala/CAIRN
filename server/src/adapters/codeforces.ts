@@ -93,7 +93,7 @@ export function createCodeforcesAdapter(fetchJson: Fetcher = defaultFetch): Plat
   return {
     platform: 'codeforces',
     capability: 'AUTOMATIC',
-    capabilityNote: 'Official API: profile, submissions, rating history, contests.',
+    capabilityNote: 'Verified automatically through the official Codeforces interface: profile, submissions, rating history and contests.',
     sourceState: 'LIVE',
     async getProfile(handle): Promise<Profile> {
       const [u] = await call(`user.info?handles=${encodeURIComponent(handle)}`, z.array(userSchema));

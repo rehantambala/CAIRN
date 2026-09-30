@@ -10,8 +10,8 @@ html { -webkit-text-size-adjust: 100%; scroll-behavior: smooth; }
 
 body {
   margin: 0;
-  background: var(--color-surface-primary);
-  color: var(--color-text-primary);
+  background: var(--color-sky);
+  color: var(--color-deep);
   font-family: var(--font-ui);
   font-size: var(--fs-ui);
   line-height: 1.45;
@@ -31,7 +31,7 @@ a { color: var(--link); text-underline-offset: 4px; text-decoration-thickness: 1
 a:hover { text-decoration-thickness: 2px; }
 
 :focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
-.block-ink :focus-visible { outline-color: var(--color-text-light); }
+.block-ink :focus-visible { outline-color: var(--color-cream); }
 
 .sr-only {
   position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; overflow: hidden;
@@ -40,6 +40,6 @@ a:hover { text-decoration-thickness: 2px; }
 
 .skip-link {
   position: absolute; left: var(--space-4); top: -100px; z-index: 100;
-  background: var(--color-text-primary); color: var(--color-text-light); padding: var(--space-3) var(--space-4);
+  background: var(--color-deep); color: var(--color-cream); padding: var(--space-3) var(--space-4);
 }
 .skip-link:focus { top: var(--space-4); }

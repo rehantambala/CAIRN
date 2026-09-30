@@ -3,7 +3,7 @@ import { ago } from '../format';
 import { useReveal } from '../hooks';
 import type { SourceState } from '../api';
 
-export function Loading({ label = 'One moment' }: { label?: string }) {
+export function Loading({ label = 'Loading' }: { label?: string }) {
   return <div className="loading frame" role="status" aria-live="polite">{label}…</div>;
 }
 
@@ -11,9 +11,9 @@ export function ErrorBanner({ error, retry }: { error: Error; retry?: () => void
   return (
     <div className="frame" style={{ padding: 'var(--space-8) var(--gutter)' }}>
       <div className="banner" role="alert">
-        <p className="h-sub">We could not load this</p>
+        <p className="h-sub">This page could not be loaded</p>
         <p className="body" style={{ marginTop: 'var(--space-3)' }}>
-          {error.message === 'UNAUTHENTICATED' ? 'Your session ended. Sign in again.' : `${error.message}. Nothing has been changed.`}
+          {error.message === 'UNAUTHENTICATED' ? 'Your session has ended. Please sign in again.' : `${error.message}. Nothing has been changed.`}
         </p>
         {retry && <div className="btn-row" style={{ marginTop: 'var(--space-4)' }}><button className="btn btn--sm" onClick={retry}>Try again</button></div>}
       </div>
@@ -43,7 +43,7 @@ export function SourceChip({ status, updatedAt, now }: { status: SourceState; up
 
 export function Section({
   kicker, tone, children, id, className = '', label,
-}: { kicker?: string; tone?: 'pink' | 'deep' | 'ink'; children: ReactNode; id?: string; className?: string; label?: string }) {
+}: { kicker?: string; tone?: 'sky' | 'deep' | 'ink'; children: ReactNode; id?: string; className?: string; label?: string }) {
   const r = useReveal<HTMLElement>();
   return (
     <section id={id} ref={r.ref} aria-label={label ?? kicker} className={`section ${tone ? `block block-${tone}` : ''} ${r.className} ${className}`}>
@@ -57,7 +57,7 @@ export function Section({
 
 export function PageHead({ title, sub, children }: { title: string; sub?: string; children?: ReactNode }) {
   return (
-    <header className="pagehead block block-pink">
+    <header className="pagehead block block-sky">
       <div className="frame enter">
         <h1 className="display fig-2xl">{title}</h1>
         {sub && <p className="lead" style={{ marginTop: 'var(--space-5)' }}>{sub}</p>}

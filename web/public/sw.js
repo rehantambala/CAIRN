@@ -1,5 +1,5 @@
 /* VECTOR service worker: offline shell + push with deep links. */
-const CACHE = 'vector-shell-v2';
+const CACHE = 'vector-shell-v3';
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (e) => {

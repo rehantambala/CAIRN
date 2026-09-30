@@ -104,7 +104,7 @@ api.post('/contests/:id/commit', wrap(async (req, res) => {
     await applyCommitmentToToday(cl, uid(req), id, true, Date.now());
   });
   await runJob('notify');
-  res.json({ ok: true, message: 'Your rated attempt is scheduled.' });
+  res.json({ ok: true, message: 'Your commitment is recorded, and reminders are scheduled.' });
 }));
 
 api.delete('/contests/:id/commit', wrap(async (req, res) => {
@@ -119,7 +119,7 @@ api.post('/contests/:id/attended', wrap(async (req, res) => {
   const id = z.string().uuid().parse(req.params.id);
   const c = (await pool.query('select platform, start_at from contests where id=$1', [id])).rows[0];
   if (!c) return res.status(404).json({ error: 'NOT_FOUND' });
-  if (ADAPTERS[c.platform as Platform].capability === 'AUTOMATIC') return res.status(409).json({ error: 'VERIFIED_SOURCE', message: 'This platform is verified automatically.' });
+  if (ADAPTERS[c.platform as Platform].capability === 'AUTOMATIC') return res.status(409).json({ error: 'VERIFIED_SOURCE', message: 'This platform is verified automatically, so manual recording is not available.' });
   if ((c.start_at as Date).getTime() > Date.now()) return res.status(409).json({ error: 'NOT_STARTED' });
   await tx(async (cl) => {
     await recordParticipation(cl, uid(req), c.platform, id, { source: 'MANUAL' });
@@ -131,7 +131,7 @@ api.post('/contests/:id/attended', wrap(async (req, res) => {
 api.post('/problems/solve', wrap(async (req, res) => {
   const b = z.object({ platform: platformSchema, externalId: z.string().min(1).max(200) }).parse(req.body);
   if (ADAPTERS[b.platform].capability === 'AUTOMATIC') {
-    return res.status(409).json({ error: 'VERIFIED_SOURCE', message: 'Codeforces is verified automatically. Run a sync.' });
+    return res.status(409).json({ error: 'VERIFIED_SOURCE', message: 'Codeforces is verified automatically. Run a synchronisation instead.' });
   }
   if (!RATED_PLATFORMS.includes(b.platform as any)) return res.status(400).json({ error: 'NOT_A_PROBLEM_PLATFORM' });
   const r = await processAccepted(uid(req), { platform: b.platform, externalProblemId: b.externalId, acceptedAt: new Date(), source: 'MANUAL' });

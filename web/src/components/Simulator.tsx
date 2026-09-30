@@ -52,22 +52,22 @@ export function Simulator({ base, target }: { base: ScoreInputs; target: number 
           </fieldset>
         ))}
         <fieldset className="fs">
-          <legend className="h-sub">Other platforms (as recorded)</legend>
+          <legend className="h-sub">Other platforms, as recorded</legend>
           <div className="form-grid">
             {MANUAL.map(([p, label]) => <Num key={p} label={label} value={sim[p]} onChange={(v) => setSim((s) => ({ ...s, [p]: v }))} max={1_000_000} />)}
           </div>
         </fieldset>
-        <div className="btn-row"><button className="btn btn--ghost" onClick={() => setSim(base)}>Reset to today</button></div>
+        <div className="btn-row"><button className="btn btn--ghost" onClick={() => setSim(base)}>Restore current figures</button></div>
       </div>
 
       <div className="sim__out" aria-live="polite">
-        <p className="kicker">You would be at</p>
+        <p className="kicker">The score would be</p>
         <p className="display fig-hero sim__fig">{res ? fmt(res.simulated.overall) : '…'}</p>
         {err && <p className="error-text" role="alert">{err}</p>}
         {res && (
           <>
             <p className="lead" style={{ marginTop: 'var(--space-5)' }}>
-              {signed(res.delta)} from today. {res.remainingAfter === 0 ? `That clears ${fmt(target)}+.` : `${fmt(res.remainingAfter)} still to go.`}
+              {signed(res.delta)} against the current score. {res.remainingAfter === 0 ? `That would pass ${fmt(target)}+.` : `${fmt(res.remainingAfter)} points would remain.`}
             </p>
             <ul className="ledger" style={{ marginTop: 'var(--space-6)' }}>
               {PLATS.map(([p, label]) => (
@@ -76,7 +76,7 @@ export function Simulator({ base, target }: { base: ScoreInputs; target: number 
             </ul>
             {res.effects.length > 0 && (
               <>
-                <p className="kicker" style={{ margin: 'var(--space-6) 0 var(--space-3)' }}>What each change is worth</p>
+                <p className="kicker" style={{ margin: 'var(--space-6) 0 var(--space-3)' }}>Effect of each change</p>
                 <ul className="ledger">
                   {res.effects.map((e) => (
                     <li key={e.key} className="ledger__row"><span className="ledger__k">{e.label}</span><span className="ledger__v">{fmt(e.from)} → {fmt(e.to)}</span><span className="ledger__n">{signed(e.effect)}</span></li>
@@ -85,7 +85,7 @@ export function Simulator({ base, target }: { base: ScoreInputs; target: number 
               </>
             )}
             <p className="small" style={{ marginTop: 'var(--space-5)' }}>
-              This is pure arithmetic on the formula. Whether a contest actually moves your rating is not predicted here.
+              This is arithmetic on the formula alone. Whether a contest moves your rating is not predicted.
             </p>
           </>
         )}

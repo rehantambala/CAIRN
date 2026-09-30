@@ -110,7 +110,7 @@ describe('Codeforces sync into the pipeline', () => {
     const before = (await loadScore(pool, uid)).score.overall;
     const r = await syncPlatform(uid, 'codeforces', NOW, createCodeforcesAdapter(fakeFetch(true)));
     expect(r.ok).toBe(false);
-    expect(r.message).toMatch(/SYNC ERROR/);
+    expect(r.message).toMatch(/Synchronisation failed/);
     const { stats, score } = await loadScore(pool, uid);
     expect(score.overall).toBe(before);
     expect(stats.find((s) => s.platform === 'codeforces')!.sourceStatus).toBe('ERROR');

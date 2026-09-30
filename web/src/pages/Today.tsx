@@ -3,10 +3,11 @@ import { Link } from 'react-router-dom';
 import type { DayState, Overview } from '../api';
 import { ago, fmt, signed } from '../format';
 import { useFetch, useNow } from '../hooks';
-import { dayLine, dayMood, gradient, greetingWord, streakLine, STATUS_WORD, statusLine } from '../copy';
+import { dayLine, dayMood, gradient, greetingWord, streakHead, streakLine, STATUS_WORD, statusLine } from '../copy';
 import { ErrorBanner, Loading, Section, SourceChip, Empty } from '../components/ui';
 import { GoalBar, NextBlock, ScoreAnnouncer, ScoreFigure } from '../components/score';
 import { TodayItem } from '../components/TodayItem';
+import { Ball } from '../components/Ball';
 
 interface CalDay { date: string; state: DayState; verified: boolean }
 interface Cal { today: string; days: CalDay[] }
@@ -50,7 +51,10 @@ export function Today() {
     <>
       <ScoreAnnouncer value={o.score.overall} />
 
-      <section className="hero block block-pink" aria-label="Your score">
+      <section className="hero block block-sky" aria-label="Your score">
+        <Ball size={110} rotate={-14} className="ball--far" style={{ left: '6%', top: '14%' }} />
+        <Ball size={64} rotate={22} className="ball--far" style={{ right: '9%', top: '9%' }} />
+        <Ball size={72} rotate={8} style={{ right: '5%', bottom: '3%' }} />
         <div className="frame">
           <p className="kicker enter">{greetingWord(ctx.hour)}{o.user.displayName && o.user.displayName !== 'Owner' ? `, ${o.user.displayName}` : ''}</p>
           <p className="lead hero__line enter" style={{ animationDelay: '0.08s' }}>{dayLine(ctx)}</p>
@@ -71,29 +75,29 @@ export function Today() {
         <div className="frame"><NextBlock next={o.next} items={o.today.items} delta={o.today.targetScoreDelta} now={now} fetchedAt={fetchedAt} /></div>
       </section>
 
-      <Section kicker={dayDone ? 'Today, finished' : 'Today'} id="today-list">
+      <Section kicker={dayDone ? 'Today · complete' : 'Today’s objective'} id="today-list">
         <div className="tday-head">
-          <h2 className="statement">{o.today.isRest ? 'A rest day.' : dayDone ? 'Everything required is done.' : `${required.length - done} ${required.length - done === 1 ? 'thing' : 'things'} left today.`}</h2>
+          <h2 className="statement">{o.today.isRest ? 'A scheduled rest day.' : dayDone ? 'Every required item is complete.' : `${required.length - done} required ${required.length - done === 1 ? 'item remains' : 'items remain'}.`}</h2>
           {o.today.targetScoreDelta > 0 && !o.today.isRest && (
             <p className="body">{dayDone
-              ? <>Today was worth <span className="strong">{signed(o.today.targetScoreDelta)}</span> points you can count on. Rating changes are not promised, so they are not in this number.</>
-              : <>These add up to <span className="strong">{signed(o.today.targetScoreDelta)}</span> points you can count on. Rating changes are not promised, so they are not in this number.</>}</p>
+              ? <>Today’s work was worth <span className="strong">{signed(o.today.targetScoreDelta)}</span> points, all of them certain. Rating changes cannot be promised, so they are excluded from this figure.</>
+              : <>Completing these items adds <span className="strong">{signed(o.today.targetScoreDelta)}</span> points, all of them certain. Rating changes cannot be promised, so they are excluded from this figure.</>}</p>
           )}
         </div>
         {o.today.items.length === 0
-          ? <Empty title="Nothing scheduled">No required work and no contest today. Add problems to the pool or sync a platform.</Empty>
+          ? <Empty title="No work scheduled">No work is required and no contest falls today. Add problems to the pool or synchronise a platform.</Empty>
           : <ol className="qlist">{o.today.items.map((it, i) => <TodayItem key={it.id} item={it} index={i} onChange={reload} open={!it.completed && i === o.today.items.findIndex((x) => !x.completed)} />)}</ol>}
-        <p style={{ marginTop: 'var(--space-8)' }}><Link to="/practice" className="link-arrow">Want a different problem? Browse the pool</Link></p>
+        <p style={{ marginTop: 'var(--space-8)' }}><Link to="/practice" className="link-arrow">Browse the problem pool</Link></p>
       </Section>
 
-      <Section kicker="Your week" tone="deep">
+      <Section kicker="The past seven days" tone="deep">
         <div className="week">
           <div>
-            <p className="statement">{streakLine(ctx.streak)}</p>
-            <p className="body" style={{ marginTop: 'var(--space-4)' }}>
+            <p className="statement">{streakHead(ctx.streak)}</p>
+            <p className="body" style={{ marginTop: 'var(--space-4)' }}>{streakLine(ctx.streak)}{' '}
               {o.consistency.executionRate === null
-                ? 'Execution rate and contest attendance appear after a week of history.'
-                : `${o.consistency.executionRate}% of planned sessions completed. Weekly objective ${o.consistency.weeklyCompletion ?? 0}%.`}
+                ? 'Execution rate and contest attendance are shown once a week of history exists.'
+                : `${o.consistency.executionRate} per cent of planned sessions were completed. The weekly objective stands at ${o.consistency.weeklyCompletion ?? 0} per cent.`}
             </p>
           </div>
           <ol className="wk" aria-label="Last seven days">
@@ -108,22 +112,22 @@ export function Today() {
         </div>
       </Section>
 
-      <Section kicker="Where the path stands">
+      <Section kicker="Position against the target">
         <div className="grid-2">
           <div>
             <p className="statement">{STATUS_WORD[t.status] ?? t.status}.</p>
             <p className="body" style={{ marginTop: 'var(--space-4)' }}>{statusLine(t.status, t.historyDays)}</p>
           </div>
           <div className="btn-row" style={{ alignSelf: 'end' }}>
-            <Link to="/path" className="btn">See the path</Link>
-            <Link to="/log" className="btn btn--ghost">{o.awards.length > 0 ? `${o.awards.length} earned` : 'Your log'}</Link>
+            <Link to="/path" className="btn">Open the path</Link>
+            <Link to="/log" className="btn btn--ghost">{o.awards.length > 0 ? `${o.awards.length} ${o.awards.length === 1 ? 'milestone' : 'milestones'} reached` : 'Open the log'}</Link>
           </div>
         </div>
       </Section>
 
-      <Section kicker="What changed" tone="deep">
+      <Section kicker="Recent events" tone="deep">
         {o.changes.length === 0
-          ? <Empty title="Nothing yet">Verified events show up here as your platforms sync.</Empty>
+          ? <Empty title="No events yet">Verified events appear here as your platforms synchronise.</Empty>
           : (
             <ul className="ledger">
               {o.changes.slice(0, 4).map((c, i) => (
@@ -131,11 +135,11 @@ export function Today() {
               ))}
             </ul>
           )}
-        <p className="kicker" style={{ margin: 'var(--space-9) 0 var(--space-4)' }}>How fresh this is</p>
+        <p className="kicker" style={{ margin: 'var(--space-9) 0 var(--space-4)' }}>Currency of the data</p>
         <ul className="fresh">
           {o.sources.map((s) => <li key={s.platform}><span className="strong">{s.label}</span> <SourceChip status={s.status} updatedAt={s.updatedAt} now={now} /></li>)}
         </ul>
-        <p className="small" style={{ marginTop: 'var(--space-4)' }}>{fmt(o.remaining)} points to go. Numbers come from your recorded data only, never an estimate.</p>
+        <p className="small" style={{ marginTop: 'var(--space-4)' }}>{fmt(o.remaining)} points remain to the target. Every figure is taken from recorded data; none is estimated.</p>
       </Section>
     </>
   );

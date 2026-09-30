@@ -26,7 +26,7 @@ export function App() {
   if (auth === 'loading') return <Loading />;
   if (auth === 'offline') {
     return (
-      <main id="main" className="login block block-pink">
+      <main id="main" className="login block block-sky">
         <div className="frame stack">
           <p className="kicker">VECTOR</p>
           <h1 className="display fig-2xl">Offline</h1>

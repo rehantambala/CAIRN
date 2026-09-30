@@ -1,39 +1,30 @@
-/* VECTOR design tokens. Semantic, not decorative. Six colors, no others. */
+/* VECTOR design tokens. Colour, type and spacing follow the reference site (dontboardme.com):
+   a pale-blue ground, dusty-blue condensed capitals, cream lettering on pill buttons, tennis-ball yellow. */
 :root {
-  --color-surface-primary: #F4CED3;
-  --color-text-primary: #000000;
-  --color-text-link: #0000EE;
-  --color-accent: #E33529;
-  --color-background-dark: #F0B5BE;
-  --color-text-light: #F3F3E9;
+  --color-sky: #B7D7F5;         /* ground */
+  --color-sky-deep: #9FC6EC;    /* alternate band */
+  --color-ink: #3B6787;         /* display lettering and button fill */
+  --color-deep: #1C3750;        /* running text; 8.2:1 on the ground */
+  --color-cream: #F3F3E9;       /* lettering on ink */
+  --color-ball: #DFE84A;        /* decoration and emphasis on dark bands only */
+  --color-link: #1C3750;
 
-  /* Semantic roles, re-pointed per block */
-  --bg: var(--color-surface-primary);
-  --fg: var(--color-text-primary);
-  --link: var(--color-text-link);
-  --mark: var(--color-accent);      /* large type and fills only: 3:1 on pink, never small text */
-  --rule: var(--color-text-primary);
+  --bg: var(--color-sky);
+  --fg: var(--color-deep);
+  --display: var(--color-ink);   /* large lettering only: 4.0:1 on the ground */
+  --link: var(--color-link);
+  --mark: var(--color-ink);
+  --rule: var(--color-deep);
 
-  /* Families. Neue Montreal first so a licensed install wins; Inter is the shipped stand-in. */
-  --font-serif: Times, "Times New Roman", Tinos, "Liberation Serif", serif;
   --font-ui: "Neue Montreal", Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-display: "Bayon", Impact, "Arial Narrow", sans-serif;
 
-  /* Reference scale (desktop ceiling). Each step is recomposed on small screens, not just shrunk. */
-  --text-xs: 16px;
-  --text-sm: 19px;
-  --text-base: 35px;
-  --text-lg: 38px;
-  --text-xl: 49px;
-  --text-2xl: 82px;
-  --text-3xl: 219px;
-
-  --fs-meta: 16px;
+  --fs-meta: 15px;
   --fs-ui: clamp(17px, 0.4vw + 15.5px, 19px);
-  --fs-lead: clamp(24px, 2.2vw + 10px, 35px);
-  --fs-statement: clamp(32px, 3.6vw + 8px, 49px);
-  --fs-display: clamp(56px, 7vw + 8px, 82px);
-  --fs-hero: clamp(120px, 36vw, 219px);
+  --fs-lead: clamp(19px, 1vw + 14px, 26px);
+  --fs-statement: clamp(40px, 5vw + 8px, 82px);
+  --fs-display: clamp(56px, 7vw + 8px, 120px);
+  --fs-hero: clamp(112px, 34vw, 340px);
 
   --weight-regular: 400;
   --weight-medium: 500;
@@ -48,13 +39,11 @@
   --space-7: 29px;
   --space-8: 38px;
   --space-9: 43px;
-  --space-10: 47px;
-  --space-11: 67px;
+  --space-10: 67px;
+  --space-11: 94px;
   --space-12: 141px;
-  --space-13: 754px;   /* narrative measure */
-  --space-14: 1055px;  /* content column */
 
-  --radius-full: 50%;
+  --radius-pill: 999px;
 
   --t-fast: 0.1s ease-in;
   --t-base: 0.2s ease-out;
@@ -67,12 +56,9 @@
   --nav-h: 67px;
   --dock-h: 72px;
 }
+@media (min-width: 900px) { :root { --gutter: var(--space-9); } }
 
-@media (min-width: 900px) {
-  :root { --gutter: var(--space-9); }
-}
-
-/* Color blocks: sections recompose the semantic roles instead of adding colors. */
-.block-pink { --bg: var(--color-surface-primary); --fg: var(--color-text-primary); --link: var(--color-text-link); --mark: var(--color-accent); --rule: var(--color-text-primary); }
-.block-deep { --bg: var(--color-background-dark); --fg: var(--color-text-primary); --link: var(--color-text-link); --mark: var(--color-text-primary); --rule: var(--color-text-primary); }
-.block-ink  { --bg: var(--color-text-primary); --fg: var(--color-text-light); --link: var(--color-text-light); --mark: var(--color-accent); --rule: var(--color-text-light); }
+.block-sky  { --bg: var(--color-sky); --fg: var(--color-deep); --display: var(--color-ink); --mark: var(--color-ink); --rule: var(--color-deep); }
+.block-deep { --bg: var(--color-sky-deep); --fg: var(--color-deep); --display: var(--color-deep); --mark: var(--color-deep); --rule: var(--color-deep); }
+.block-ink  { --bg: var(--color-deep); --fg: var(--color-cream); --display: var(--color-cream); --link: var(--color-cream); --mark: var(--color-ball); --rule: var(--color-cream); }
+.block { background: var(--bg); color: var(--fg); }

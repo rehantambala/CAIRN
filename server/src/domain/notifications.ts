@@ -51,24 +51,24 @@ export function buildMessage(
   switch (type) {
     case 'CONTEST_24H':
       return { title: 'VECTOR', url: link,
-        body: `${name} begins ${c ? hourMinute(c.startAt, tz) : ''} tomorrow. Your planned execution is ready.` };
+        body: `${name || 'A rated contest'} begins tomorrow${c ? ` at ${hourMinute(c.startAt, tz)}` : ''}. A rated attempt is the only route to rating movement; committing schedules your preparation.` };
     case 'CONTEST_1H':
       return { title: 'VECTOR', url: link,
-        body: `${name} begins in about 1 hour. Your objective: enter prepared and execute.` };
+        body: `${name || 'Your contest'} begins in about one hour. Preparation should start now, so that the attempt begins from a settled position.` };
     case 'CONTEST_10M': {
       const mins = c ? Math.max(0, Math.round((c.startAt - now) / MIN)) : 10;
       return { title: 'VECTOR', url: link,
         body: mins > 0
-          ? `About ${mins} minutes until the rated opportunity. Your execution window is opening.`
-          : 'The rated opportunity is starting. Your execution window is open.' };
+          ? `${name || 'Your contest'} begins in about ${mins} minutes. The rated window is about to open.`
+          : `${name || 'Your contest'} is about to begin. The rated window is open.` };
     }
     case 'CONTEST_CLOSED':
-      return { title: 'VECTOR', url: link, body: 'Contest window closed. Syncing your result.' };
+      return { title: 'VECTOR', url: link, body: `${name || 'The contest'} has closed. Your result will be synchronised shortly.` };
     case 'OBJECTIVE_COMPLETE':
-      return { title: 'VECTOR', url: '/calendar', body: "Today's objective is complete. Execution recorded." };
+      return { title: 'VECTOR', url: '/calendar', body: "Today's objective is complete, and the execution is recorded." };
     case 'CONTEST_MISSED':
       return { title: 'VECTOR', url: '/contests',
-        body: 'Scheduled contest missed. No retroactive credit. The next rated opportunity has been identified.' };
+        body: 'A committed contest was not attended, and no credit is given retrospectively. The next rated contest has been identified.' };
   }
 }
 

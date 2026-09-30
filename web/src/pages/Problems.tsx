@@ -39,20 +39,20 @@ export function Problems() {
 
   return (
     <>
-      <PageHead title="Practice" sub="Real problems, picked for you. Anything already solved is never suggested again." />
+      <PageHead title="Practice" sub="Problems are selected for you. A problem already solved is never suggested again." />
 
       <section className="section" aria-label="Selected today">
         <div className="frame">
-          <p className="kicker" style={{ marginBottom: 'var(--space-6)' }}>Picked for today</p>
+          <p className="kicker" style={{ marginBottom: 'var(--space-6)' }}>Selected for today</p>
           {data.selectedToday.length === 0
-            ? <Empty title="Nothing selected">Today has no problem suggestions. Use the pool below.</Empty>
+            ? <Empty title="No selection">No problems are suggested today. Use the pool below.</Empty>
             : (
               <ul className="ledger">
                 {data.selectedToday.map((s) => (
                   <li key={s.platform + s.externalId} className="ledger__row">
                     <span className="ledger__k">{PLAT_LABEL[s.platform]} · {s.difficulty ?? '—'}{s.topic ? ` · ${s.topic}` : ''}</span>
                     <span className="ledger__v"><a href={s.url} target="_blank" rel="noreferrer noopener">{s.title}</a><br /><span className="muted">{s.reason}</span></span>
-                    <span className="state">{s.solved ? '✓ Done' : '○ Open'}</span>
+                    <span className="state">{s.solved ? '✓ Solved' : '○ Open'}</span>
                   </li>
                 ))}
               </ul>
@@ -64,14 +64,14 @@ export function Problems() {
         <div className="frame">
           <p className="kicker" style={{ marginBottom: 'var(--space-6)' }}>Recently solved</p>
           {data.recentlySolved.length === 0
-            ? <Empty title="No accepted problems recorded">Accepted submissions appear here after a sync or import.</Empty>
+            ? <Empty title="No accepted problems recorded">Accepted submissions appear here after a synchronisation or an import.</Empty>
             : (
               <ul className="ledger">
                 {data.recentlySolved.map((s) => (
                   <li key={s.platform + s.id} className="ledger__row">
                     <span className="ledger__k">{PLAT_LABEL[s.platform]}{s.difficulty ? ` · ${s.difficulty}` : ''}</span>
                     <span className="ledger__v">{s.url ? <a href={s.url} target="_blank" rel="noreferrer noopener">{s.title}</a> : s.title}</span>
-                    <span className="muted">{new Date(s.at).getFullYear() < 2000 ? 'before baseline' : ago(s.at, now)} · {s.source === 'MANUAL' ? 'self-marked' : 'verified'}</span>
+                    <span className="muted">{new Date(s.at).getFullYear() < 2000 ? 'before the baseline' : ago(s.at, now)} · {s.source === 'MANUAL' ? 'recorded by you' : 'verified'}</span>
                   </li>
                 ))}
               </ul>
@@ -81,7 +81,7 @@ export function Problems() {
 
       <section className="section" aria-label="Pool">
         <div className="frame">
-          <p className="kicker" style={{ marginBottom: 'var(--space-6)' }}>Browse the pool</p>
+          <p className="kicker" style={{ marginBottom: 'var(--space-6)' }}>The problem pool</p>
           <div className="form-grid">
             <div className="field"><label htmlFor="q">Search</label><input id="q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Title or topic" /></div>
             <div className="field"><label htmlFor="pl">Platform</label>
@@ -95,7 +95,7 @@ export function Problems() {
           </div>
           <p className="muted" style={{ margin: 'var(--space-4) 0' }} aria-live="polite">{list.length} problem{list.length === 1 ? '' : 's'}</p>
           {list.length === 0
-            ? <Empty title="No matches">Try a different search or platform.</Empty>
+            ? <Empty title="No matches">Adjust the search or the platform.</Empty>
             : (
               <ul className="ledger">
                 {list.slice(0, 120).map((p) => (
@@ -103,8 +103,8 @@ export function Problems() {
                     <span className="ledger__k">{PLAT_LABEL[p.platform]} · {p.difficulty ?? '—'}</span>
                     <span className="ledger__v">{p.url ? <a href={p.url} target="_blank" rel="noreferrer noopener">{p.title}</a> : p.title}{p.topic && <span className="muted"> · {p.topic}</span>}</span>
                     {p.solved ? <span className="state">✓ Solved</span>
-                      : data.manualAllowed[p.platform] ? <button className="btn btn--ghost btn--sm" disabled={busy !== null} aria-busy={busy === p.id} onClick={() => mark(p)} aria-label={`Mark ${p.title} as solved manually`}>I solved it</button>
-                      : <span className="muted">Auto-verified</span>}
+                      : data.manualAllowed[p.platform] ? <button className="btn btn--ghost btn--sm" disabled={busy !== null} aria-busy={busy === p.id} onClick={() => mark(p)} aria-label={`Mark ${p.title} as solved`}>Mark as solved</button>
+                      : <span className="muted">Verified automatically</span>}
                   </li>
                 ))}
               </ul>
