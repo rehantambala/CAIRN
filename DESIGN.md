@@ -1,4 +1,4 @@
-# VECTOR design and motivation notes
+# CAIRN design and motivation notes
 
 ## Structure
 Five screens, because every extra screen is a decision the user must make before doing the work (Hick's law).
@@ -47,3 +47,14 @@ Old links keep working (redirects): /today, /calendar, /awards, /trajectory, /sc
 Lettering: Bayon in capitals for figures, headings and buttons; Inter (stand-in for Neue Montreal) for running text. Buttons are cream-on-ink pills with a trailing dot. Hero, page heads, the next action and sign-in are centred, with 141 px section padding on wide screens.
 
 **Language.** Formal, precise British English. Every important statement answers what, when and why. Evidence over judgement, specificity over enthusiasm, explanation over persuasion. No slang, no motivational phrasing, no exclamation marks, no emoji, no praise that the data does not support. Spelling: synchronise, programme, per cent; 24-hour times.
+
+
+## Name, mark and motion (CAIRN)
+
+The product is named CAIRN: a stack of stones that marks a route already climbed, which is what a verified problem adds to the score. The mark is four balanced ellipses (`web/src/components/Mark.tsx`); the same geometry generates the icons in `web/public`. The visible name lives in `web/src/brand.ts` and `server/src/domain/brand.ts`; repository, hostnames and secrets keep their original identifiers.
+
+Motion is ambient and never decorative noise: the loader builds the cairn stone by stone, and the hero carries a slow contour field (`Contours.tsx`). Both stop under `prefers-reduced-motion`. The Today list separates items with space and tone only; the single dark panel marks the item to begin with.
+
+## Live data
+
+LeetCode and CodeChef are read from public profiles and Codeforces from its official interface. Each synchronisation replaces the stored baseline with the platform's own totals, then recalculates through the single score engine. A failed read keeps the stored figures and marks the source as an error. Smart Interviews, InterviewBit and HackerRank publish nothing this application may read, so their contributions are entered by the owner.

@@ -1,4 +1,4 @@
-# VECTOR
+# CAIRN
 
 A personal competitive-programming performance instrument. One objective: **12,604 → 25,000+**.
 

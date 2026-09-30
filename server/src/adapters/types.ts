@@ -36,6 +36,12 @@ export interface RatingPoint {
 
 export interface Profile { handle: string; rating: number | null; maxRating: number | null }
 
+/**
+ * Authoritative lifetime totals as published on the platform's own profile.
+ * When an adapter provides them they replace the derived baseline on every synchronisation.
+ */
+export interface Totals { problems: number; contests: number; rating: number | null }
+
 export class AdapterUnavailable extends Error {
   constructor(public platform: Platform, message: string) { super(message); }
 }
@@ -51,6 +57,7 @@ export interface PlatformAdapter {
   capabilityNote: string;
   getProfile?(handle: string): Promise<Profile>;
   getStats?(handle: string): Promise<{ rating: number | null }>;
+  getTotals?(handle: string): Promise<Totals>;
   getSubmissions?(handle: string): Promise<NormalizedSubmission[]>;
   getContests?(): Promise<NormalizedContest[]>;
   getContestParticipation?(handle: string): Promise<{ contestExternalId: string }[]>;

@@ -16,7 +16,7 @@ Add repository secrets `CRON_SECRET` and `VECTOR_API_URL`. `.github/workflows/jo
 Jobs: `contests` (discovery), `sync` (Codeforces), `rollover` (close past days, create today), `notify` (schedule and deliver). Each is idempotent.
 
 ## 4. Push notifications
-`npx web-push generate-vapid-keys`, set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`. Open VECTOR, Settings, Enable on this device. On iOS the PWA must be installed to the home screen first. Tapping a notification opens the relevant page.
+`npx web-push generate-vapid-keys`, set `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`. Open CAIRN, Settings, Enable on this device. On iOS the PWA must be installed to the home screen first. Tapping a notification opens the relevant page.
 
 ## 5. Connect sources
 Settings: add your Codeforces handle and Sync. LeetCode, CodeChef, Smart Interviews, InterviewBit and HackerRank take imported or manual values; no passwords are stored and no logins are automated.

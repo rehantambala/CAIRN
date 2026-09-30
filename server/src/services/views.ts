@@ -117,6 +117,7 @@ export async function contestsView(db: Db, userId: string, now: number) {
       where c.end_at > $2 or (c.end_at > $3 and (cm.id is not null or cp.id is not null))
       order by c.start_at`, [userId, new Date(now), new Date(now - 30 * 86_400_000)],
   )).rows;
+  const linked = new Set((await db.query(`select platform from platform_accounts where user_id=$1 and username <> ''`, [userId])).rows.map((r) => r.platform as string));
   const view = rows.map((r) => {
     const startAt = (r.start_at as Date).getTime(), endAt = (r.end_at as Date).getTime();
     return {
@@ -125,7 +126,7 @@ export async function contestsView(db: Db, userId: string, now: number) {
       registrationUrl: r.registration_url, contestUrl: r.contest_url, rated: r.rated,
       committed: r.committed, prepMinutes: r.prep_minutes ?? 30, attended: !!r.attended,
       ratingDelta: r.rating_delta, state: contestState({ startAt, endAt }, now, r.committed, !!r.attended),
-      manualOk: ADAPTERS[r.platform as Platform].capability !== 'AUTOMATIC',
+      manualOk: ADAPTERS[r.platform as Platform].capability !== 'AUTOMATIC' || !linked.has(r.platform),
     };
   });
   return { timezone: user.timezone, now: new Date(now).toISOString(), contests: view };

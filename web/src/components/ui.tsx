@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ago } from '../format';
 import { useReveal } from '../hooks';
+import { Mark } from './Mark';
 import type { SourceState } from '../api';
 
-export function Loading({ label = 'Loading' }: { label?: string }) {
-  return <div className="loading frame" role="status" aria-live="polite">{label}…</div>;
+export function Loading({ label = 'Retrieving your position' }: { label?: string }) {
+  // A free server sleeps when idle. After a few seconds the wait is explained rather than left unexplained.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => { const t = window.setTimeout(() => setSlow(true), 5000); return () => window.clearTimeout(t); }, []);
+  return (
+    <div className="loading frame" role="status" aria-live="polite">
+      <Mark size={96} mode="build" className="loading__mark" />
+      <p className="loading__t">{label}</p>
+      <p className="loading__s" data-on={slow}>{slow ? 'The server is starting after a period of inactivity. This can take up to a minute.' : ''}</p>
+      <div className="skel" aria-hidden="true"><span className="skel__a" /><span className="skel__b" /><span className="skel__c" /></div>
+    </div>
+  );
 }
 
 export function ErrorBanner({ error, retry }: { error: Error; retry?: () => void }) {

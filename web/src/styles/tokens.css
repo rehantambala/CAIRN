@@ -1,4 +1,4 @@
-/* VECTOR design tokens. Colour, type and spacing follow the reference site (dontboardme.com):
+/* CAIRN design tokens. Colour, type and spacing follow the reference site (dontboardme.com):
    a pale-blue ground, dusty-blue condensed capitals, cream lettering on pill buttons, tennis-ball yellow. */
 :root {
   --color-sky: #B7D7F5;         /* ground */

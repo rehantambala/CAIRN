@@ -3,6 +3,7 @@ import { closePastDays, ensureObjective } from './derived.js';
 import { deliverDue, scheduleAll, scheduleMissed } from './notify.js';
 import { refreshAfterChange } from './pipeline.js';
 import { discoverContests, syncPlatform } from './sync.js';
+import { AUTOMATIC_PLATFORMS } from '../adapters/index.js';
 
 export const JOB_NAMES = ['contests', 'sync', 'rollover', 'notify'] as const;
 export type JobName = (typeof JOB_NAMES)[number];
@@ -24,8 +25,13 @@ export async function runJob(name: JobName, now = Date.now()): Promise<Record<st
     case 'sync': {
       const out: unknown[] = [];
       for (const u of await users()) {
-        // Codeforces is the only automatic source today; more adapters join here.
-        out.push(await syncPlatform(u, 'codeforces', now));
+        // Every platform with an automatic adapter and a saved handle. One failing platform never blocks the others.
+        for (const p of AUTOMATIC_PLATFORMS) {
+          const connected = (await pool.query(`select 1 from platform_accounts where user_id=$1 and platform=$2 and username <> ''`, [u, p])).rowCount;
+          if (!connected) continue;
+          try { out.push(await syncPlatform(u, p, now)); }
+          catch (e: any) { out.push({ platform: p, ok: false, message: String(e?.message ?? e) }); }
+        }
       }
       return { reports: out };
     }

@@ -4,10 +4,11 @@ import { pool, tx } from '../db/pool.js';
 import type { Db } from '../db/pool.js';
 import { ADAPTERS } from '../adapters/index.js';
 import { clistConfigured, fetchClistContests } from '../adapters/clist.js';
-import type { NormalizedContest, PlatformAdapter } from '../adapters/types.js';
+import type { NormalizedContest, NormalizedSubmission, PlatformAdapter, Totals } from '../adapters/types.js';
 import { ingestAccepted, refreshAfterChange } from './pipeline.js';
 import { recordParticipation, recordRating, upsertContest } from './contests.js';
 import { recordEvent } from './state.js';
+import { rebaseline } from './baseline.js';
 import type { Platform } from '../domain/types.js';
 
 export interface SyncReport { platform: Platform; ok: boolean; message: string; newProblems: number; newParticipations: number }
@@ -28,7 +29,7 @@ async function setStatus(db: Db, userId: string, platform: Platform, status: str
  */
 export async function syncPlatform(userId: string, platform: Platform, now = Date.now(), adapter: PlatformAdapter = ADAPTERS[platform]): Promise<SyncReport> {
   const rep: SyncReport = { platform, ok: false, message: '', newProblems: 0, newParticipations: 0 };
-  if (adapter.capability !== 'AUTOMATIC' || !adapter.getSubmissions) {
+  if (adapter.capability !== 'AUTOMATIC' || !adapter.getProfile) {
     rep.message = 'No automatic route exists for this platform. Use the import form.';
     return rep;
   }
@@ -36,16 +37,26 @@ export async function syncPlatform(userId: string, platform: Platform, now = Dat
   if (!acct?.username) { rep.message = 'Not connected. Enter your handle in Settings.'; return rep; }
   const handle: string = acct.username;
 
-  let profile, submissions, history, contests;
+  let profile, submissions: NormalizedSubmission[], history, contests, totals: Totals | null;
   try {
-    profile = await adapter.getProfile!(handle);
-    submissions = await adapter.getSubmissions(handle);
+    profile = await adapter.getProfile(handle);
+    submissions = adapter.getSubmissions ? await adapter.getSubmissions(handle) : [];
     history = adapter.getRatingHistory ? await adapter.getRatingHistory(handle) : [];
     contests = adapter.getContests ? await adapter.getContests() : [];
+    totals = adapter.getTotals ? await adapter.getTotals(handle) : null;
   } catch (e: any) {
     await setStatus(pool, userId, platform, 'ERROR', String(e?.message ?? e).slice(0, 200), false);
     rep.message = `Synchronisation failed: ${e?.message ?? e}`;
     return rep;
+  }
+
+  // Platforms that publish no totals (Codeforces) derive them from the complete history just read.
+  // An empty history never produces a total, so a failed or partial read cannot zero the score.
+  const inContestIds = new Set(submissions.filter((s) => s.inContest && s.contestExternalId).map((s) => s.contestExternalId!));
+  if (!totals && submissions.length > 0) {
+    const solved = new Set(submissions.filter((s) => s.accepted).map((s) => s.externalProblemId));
+    const attended = new Set([...history.map((h) => h.contestExternalId), ...inContestIds]);
+    totals = { problems: solved.size, contests: attended.size, rating: profile.rating };
   }
 
   await tx(async (c) => {
@@ -67,8 +78,7 @@ export async function syncPlatform(userId: string, platform: Platform, now = Dat
       if (isNew) rep.newProblems++;
     }
     // In-contest submissions prove participation before the rating update lands.
-    const inContest = new Set(submissions.filter((s) => s.inContest && s.contestExternalId).map((s) => s.contestExternalId!));
-    for (const ext of inContest) {
+    for (const ext of inContestIds) {
       const id = await contestId(ext);
       if (id && (await recordParticipation(c, userId, platform, id, { source: 'SYNC' })).isNew) rep.newParticipations++;
     }
@@ -77,13 +87,18 @@ export async function syncPlatform(userId: string, platform: Platform, now = Dat
       if (id && (await recordParticipation(c, userId, platform, id, { ratingBefore: h.oldRating, ratingAfter: h.newRating, source: 'SYNC' })).isNew) rep.newParticipations++;
       await recordRating(c, userId, platform, h.newRating, h.at, h.contestExternalId);
     }
-    if (history.length === 0 && profile.rating != null) {
-      await recordRating(c, userId, platform, profile.rating, new Date(now), null);
+    if (history.length === 0 && (totals?.rating ?? profile.rating) != null) {
+      await recordRating(c, userId, platform, (totals?.rating ?? profile.rating)!, new Date(now), null);
+    }
+    if (totals) {
+      // Never baseline earlier than the newest submission read, so clock skew cannot count one problem twice.
+      const at = Math.max(now, ...submissions.map((x) => x.submittedAt.getTime()), ...history.map((h) => h.at.getTime()));
+      await rebaseline(c, userId, platform, totals, new Date(at));
     }
     await c.query('update platform_accounts set last_synced_at=$3, connection_status=$4, updated_at=now() where user_id=$1 and platform=$2',
       [userId, platform, new Date(now), 'CONNECTED']);
     await setStatus(c, userId, platform, adapter.sourceState, null, true);
-    await recordEvent(c, userId, 'PLATFORM_SYNCED', platform, null, { newProblems: rep.newProblems, newParticipations: rep.newParticipations });
+    await recordEvent(c, userId, 'PLATFORM_SYNCED', platform, null, { newProblems: rep.newProblems, newParticipations: rep.newParticipations, totals });
     await refreshAfterChange(c, userId, now, `sync:${platform}`);
   });
   rep.ok = true;

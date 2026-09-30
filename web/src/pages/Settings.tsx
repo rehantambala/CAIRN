@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { post, put, type Platform, type Source } from '../api';
+import { BRAND } from '../brand';
 import { ago } from '../format';
 import { useFetch, useNow } from '../hooks';
 import { ErrorBanner, Loading, PageHead, Section, SourceChip, useAnnouncer } from '../components/ui';
@@ -91,14 +92,13 @@ function SourceForm({ s, now, onDone }: { s: Source; now: number; onDone: () => 
         <h3 className="display fig-xl">{s.label}</h3>
         <SourceChip status={s.status} updatedAt={s.updatedAt} now={now} />
       </div>
-      <p className="lead">{s.capabilityNote}</p>
+      <p className="body">{s.capabilityNote}</p>
 
       {s.capability === 'AUTOMATIC' && (
         <div className="btn-row" style={{ alignItems: 'end' }}>
           <div className="field" style={{ minWidth: 220 }}><label htmlFor={`u-${s.platform}`}>Handle</label><input id={`u-${s.platform}`} className="input" value={username} onChange={(e) => setUsername(e.target.value)} /></div>
           <button className="btn btn--ghost" disabled={busy !== null} aria-busy={busy === 'save'} onClick={() => run('save', () => put(`/accounts/${s.platform}`, { username }), 'Handle saved.')}>Save handle</button>
-          <button className="btn" disabled={busy !== null || !username} aria-busy={busy === 'sync'} onClick={() => run('sync', async () => { const r = await post<{ ok: boolean; message: string }>(`/sync/${s.platform}`); if (!r.ok) throw new Error(r.message); }, 'Synchronised.')}>{busy === 'sync' ? 'Synchronising' : 'Synchronise now'}</button>
-          <button className="btn btn--ghost" disabled={busy !== null} onClick={() => run('derive', () => post('/codeforces/derive-from-history'), 'Counts are now derived from the synchronised history.')}>Count from synchronised history</button>
+          <button className="btn" disabled={busy !== null || !username} aria-busy={busy === 'sync'} onClick={() => run('sync', async () => { if (username !== (s.username ?? '')) await put(`/accounts/${s.platform}`, { username }); const r = await post<{ ok: boolean; message: string }>(`/sync/${s.platform}`); if (!r.ok) throw new Error(r.message); }, 'Synchronised. The score has been recalculated from your platform figures.')}>{busy === 'sync' ? 'Synchronising' : 'Connect and synchronise'}</button>
         </div>
       )}
 
@@ -140,7 +140,7 @@ function Notifications({ push }: { push: Payload['push'] }) {
     <div className="stack">
       <p className="lead">Reminders are sent 24 hours before a contest and, once you have committed, 1 hour and about 10 minutes before it, with a short note when the window closes.</p>
       <p className="meta">Push service: {push.configured ? 'ready' : 'not yet configured'}</p>
-      {!supported && <p className="muted">This browser does not support push notifications. On iOS, add VECTOR to the home screen first.</p>}
+      {!supported && <p className="muted">This browser does not support push notifications. On iOS, add {BRAND} to the home screen first.</p>}
       <div className="btn-row"><button className="btn" onClick={enable} disabled={!supported || !push.configured}>Enable on this device</button></div>
       {state && <p className="meta" role="status">{state}</p>}
     </div>

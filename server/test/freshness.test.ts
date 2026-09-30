@@ -11,8 +11,8 @@ describe('source freshness never lies', () => {
   });
   it('old data becomes STALE per platform window', () => {
     expect(effectiveStatus('codeforces', 'SYNCED', new Date(now - 7 * H), now)).toBe('STALE');
-    expect(effectiveStatus('leetcode', 'IMPORTED', new Date(now - 47 * H), now)).toBe('IMPORTED');
-    expect(effectiveStatus('leetcode', 'IMPORTED', new Date(now - 49 * H), now)).toBe('STALE');
+    expect(effectiveStatus('leetcode', 'IMPORTED', new Date(now - 11 * H), now)).toBe('IMPORTED');
+    expect(effectiveStatus('leetcode', 'IMPORTED', new Date(now - 13 * H), now)).toBe('STALE');
   });
   it('ERROR is never masked', () => {
     expect(effectiveStatus('codeforces', 'ERROR', new Date(now), now)).toBe('ERROR');

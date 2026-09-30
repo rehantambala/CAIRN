@@ -1,20 +1,22 @@
 import { createCodeforcesAdapter } from './codeforces.js';
+import { createCodeChefAdapter } from './codechef.js';
+import { createLeetCodeAdapter } from './leetcode.js';
 import type { PlatformAdapter } from './types.js';
 import type { Platform } from '../domain/types.js';
 
-const unavailable = (platform: Platform, capability: 'IMPORT' | 'MANUAL', note: string): PlatformAdapter => ({
-  platform, capability, capabilityNote: note, sourceState: capability === 'IMPORT' ? 'IMPORTED' : 'MANUAL',
+const manual = (platform: Platform, note: string): PlatformAdapter => ({
+  platform, capability: 'MANUAL', capabilityNote: note, sourceState: 'MANUAL',
 });
 
 export const cfAdapter = createCodeforcesAdapter();
 
 export const ADAPTERS: Record<Platform, PlatformAdapter> = {
   codeforces: cfAdapter,
-  leetcode: unavailable('leetcode', 'IMPORT',
-    'No approved automatic route exists for personal submissions. Import your own figures; problems are added by import or by your own confirmation.'),
-  codechef: unavailable('codechef', 'IMPORT',
-    'No official interface exists for personal submissions. Import your own figures; problems are added by import or by your own confirmation.'),
-  smartinterviews: unavailable('smartinterviews', 'MANUAL', 'No credentials are stored and no sign-in is automated. Enter your own score contribution.'),
-  interviewbit: unavailable('interviewbit', 'MANUAL', 'No public interface exists. Enter your own score contribution.'),
-  hackerrank: unavailable('hackerrank', 'MANUAL', 'No interface exists for personal statistics. Enter your own score contribution.'),
+  leetcode: createLeetCodeAdapter(),
+  codechef: createCodeChefAdapter(),
+  smartinterviews: manual('smartinterviews', 'Smart Interviews has no public interface and requires a sign-in, which this application will not automate. Enter the score shown on your leaderboard.'),
+  interviewbit: manual('interviewbit', 'InterviewBit has no public interface for personal statistics. Enter the score shown on your profile.'),
+  hackerrank: manual('hackerrank', 'HackerRank has no interface for the figure used in this score. Enter your own contribution.'),
 };
+
+export const AUTOMATIC_PLATFORMS: Platform[] = (Object.keys(ADAPTERS) as Platform[]).filter((p) => ADAPTERS[p].capability === 'AUTOMATIC');

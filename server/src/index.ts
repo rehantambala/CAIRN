@@ -21,4 +21,4 @@ if (existsSync(dist)) {
   app.get(/^\/(?!api\/).*/, (_req, res) => res.sendFile(join(dist, 'index.html')));
 }
 
-app.listen(config.port, () => console.log(`VECTOR api on :${config.port}`));
+app.listen(config.port, () => console.log(`CAIRN api on :${config.port}`));

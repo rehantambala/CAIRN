@@ -1,6 +1,8 @@
 import { useState, type FormEvent } from 'react';
 import { post } from '../api';
-import { Ball } from '../components/Ball';
+import { BRAND, BRAND_LINE } from '../brand';
+import { Contours } from '../components/Contours';
+import { Mark } from '../components/Mark';
 
 export function Login({ onDone }: { onDone: () => void }) {
   const [email, setEmail] = useState('');
@@ -15,13 +17,13 @@ export function Login({ onDone }: { onDone: () => void }) {
   }
   return (
     <main id="main" className="login block block-sky">
-      <Ball size={96} rotate={-12} style={{ left: '7%', top: '12%' }} />
-      <Ball size={60} rotate={18} className="ball--far" style={{ right: '8%', bottom: '14%' }} />
+      <Contours />
       <div className="frame login__grid">
         <div className="enter">
-          <p className="kicker">VECTOR</p>
+          <Mark size={84} mode="settle" className="login__mark" />
+          <p className="kicker" style={{ marginTop: 'var(--space-4)' }}>{BRAND}</p>
           <h1 className="display fig-hero login__fig">25,000<span className="mark">+</span></h1>
-          <p className="lead">A single score, a single next action, and the reason for it.</p>
+          <p className="lead">{BRAND_LINE}</p>
         </div>
         <form onSubmit={submit} className="login__form enter" style={{ animationDelay: '0.15s' }} aria-label="Sign in">
           <div className="field"><label htmlFor="em">Email</label><input id="em" className="input" type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} required /></div>

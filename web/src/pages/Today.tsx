@@ -7,10 +7,18 @@ import { dayLine, dayMood, gradient, greetingWord, streakHead, streakLine, STATU
 import { ErrorBanner, Loading, Section, SourceChip, Empty } from '../components/ui';
 import { GoalBar, NextBlock, ScoreAnnouncer, ScoreFigure } from '../components/score';
 import { TodayItem } from '../components/TodayItem';
-import { Ball } from '../components/Ball';
+import { Contours } from '../components/Contours';
 
 interface CalDay { date: string; state: DayState; verified: boolean }
 interface Cal { today: string; days: CalDay[] }
+
+/** The freshest automatic reading, stated plainly. Never implies liveness the data does not have. */
+function readingLine(sources: Overview['sources'], now: number) {
+  const auto = sources.filter((s) => s.capability === 'AUTOMATIC' && s.username && s.updatedAt && s.status !== 'ERROR');
+  if (auto.length === 0) return 'No platform is connected. Connect one in Settings to read your figures automatically.';
+  const newest = auto.reduce((a, b) => (new Date(a.updatedAt!).getTime() > new Date(b.updatedAt!).getTime() ? a : b));
+  return `${auto.length} of 3 platforms read automatically. Latest reading ${ago(newest.updatedAt!, now)}.`;
+}
 
 const hourIn = (tz: string) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
 
@@ -44,6 +52,7 @@ export function Today() {
     contestSoonMs: contestSoon ? contestSoon.startAt - Date.now() : null,
   };
   const g = gradient(o.score.overall, o.milestones.next, o.target);
+  const autoSet = new Set(o.sources.filter((s) => s.capability === 'AUTOMATIC' && s.username).map((s) => s.platform as string));
   const week = cal ? lastSeven(cal.today, cal.days) : [];
   const dayDone = dayMood(ctx) === 'done' || dayMood(ctx) === 'manual';
 
@@ -52,9 +61,7 @@ export function Today() {
       <ScoreAnnouncer value={o.score.overall} />
 
       <section className="hero block block-sky" aria-label="Your score">
-        <Ball size={110} rotate={-14} className="ball--far" style={{ left: '6%', top: '14%' }} />
-        <Ball size={64} rotate={22} className="ball--far" style={{ right: '9%', top: '9%' }} />
-        <Ball size={72} rotate={8} style={{ right: '5%', bottom: '3%' }} />
+        <Contours />
         <div className="frame">
           <p className="kicker enter">{greetingWord(ctx.hour)}{o.user.displayName && o.user.displayName !== 'Owner' ? `, ${o.user.displayName}` : ''}</p>
           <p className="lead hero__line enter" style={{ animationDelay: '0.08s' }}>{dayLine(ctx)}</p>
@@ -68,6 +75,7 @@ export function Today() {
           <div className="hero__bar enter" style={{ animationDelay: '0.4s' }}>
             <GoalBar current={o.score.overall} target={o.target} milestones={o.milestones.list} />
           </div>
+          <p className="pulse enter" style={{ animationDelay: '0.55s' }}><span className="pulse__dot" aria-hidden="true" />{readingLine(o.sources, now)}</p>
         </div>
       </section>
 
@@ -86,7 +94,7 @@ export function Today() {
         </div>
         {o.today.items.length === 0
           ? <Empty title="No work scheduled">No work is required and no contest falls today. Add problems to the pool or synchronise a platform.</Empty>
-          : <ol className="qlist">{o.today.items.map((it, i) => <TodayItem key={it.id} item={it} index={i} onChange={reload} open={!it.completed && i === o.today.items.findIndex((x) => !x.completed)} />)}</ol>}
+          : <ol className="qlist">{o.today.items.map((it, i) => <TodayItem key={it.id} item={it} index={i} onChange={reload} auto={autoSet.has(it.platform ?? '')} current={!it.completed && i === o.today.items.findIndex((x) => !x.completed)} />)}</ol>}
         <p style={{ marginTop: 'var(--space-8)' }}><Link to="/practice" className="link-arrow">Browse the problem pool</Link></p>
       </Section>
 

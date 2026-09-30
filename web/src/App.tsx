@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { get, post } from './api';
+import { BRAND } from './brand';
 import { Shell } from './components/Shell';
 import { Loading } from './components/ui';
 import { Contests } from './pages/Contests';
@@ -28,7 +29,7 @@ export function App() {
     return (
       <main id="main" className="login block block-sky">
         <div className="frame stack">
-          <p className="kicker">VECTOR</p>
+          <p className="kicker">{BRAND}</p>
           <h1 className="display fig-2xl">Offline</h1>
           <p className="lead">No connection. Scores are never shown from a cache, so nothing stale can look current.</p>
           <div className="btn-row"><button className="btn btn--big" onClick={check}>Try again</button></div>

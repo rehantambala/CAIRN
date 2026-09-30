@@ -91,9 +91,9 @@ describe('Codeforces sync into the pipeline', () => {
     const uid = (await pool.query('select id from users')).rows[0].id;
     const a = await loadScore(pool, uid);
     const cf = a.stats.find((s) => s.platform === 'codeforces')!;
-    expect(cf.problems).toBe(12);
+    expect(cf.problems).toBe(2); // the platform history is authoritative: 4A and 9001B, each once
     expect(cf.rating).toBe(861);
-    expect(cf.contests).toBe(6); // participation in 9001 counted once (submission proof + rating update merged)
+    expect(cf.contests).toBe(1); // participation in 9001 counted once (submission proof + rating update merged)
     expect(cf.sourceStatus).toBe('LIVE');
 
     const second = await syncPlatform(uid, 'codeforces', NOW, adapter);

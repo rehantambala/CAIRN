@@ -1,6 +1,6 @@
 {
-  "name": "VECTOR",
-  "short_name": "VECTOR",
+  "name": "CAIRN",
+  "short_name": "CAIRN",
   "description": "A personal performance instrument for competitive programming. Target: 25,000+.",
   "start_url": "/?source=pwa",
   "scope": "/",

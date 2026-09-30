@@ -1,3 +1,4 @@
+import { BRAND } from './brand.js';
 import { hourMinute } from './time.js';
 import { PLATFORM_LABEL, type Platform } from './types.js';
 
@@ -50,24 +51,24 @@ export function buildMessage(
   const link = c ? `/contests?focus=${encodeURIComponent(c.id)}` : '/today';
   switch (type) {
     case 'CONTEST_24H':
-      return { title: 'VECTOR', url: link,
+      return { title: BRAND, url: link,
         body: `${name || 'A rated contest'} begins tomorrow${c ? ` at ${hourMinute(c.startAt, tz)}` : ''}. A rated attempt is the only route to rating movement; committing schedules your preparation.` };
     case 'CONTEST_1H':
-      return { title: 'VECTOR', url: link,
+      return { title: BRAND, url: link,
         body: `${name || 'Your contest'} begins in about one hour. Preparation should start now, so that the attempt begins from a settled position.` };
     case 'CONTEST_10M': {
       const mins = c ? Math.max(0, Math.round((c.startAt - now) / MIN)) : 10;
-      return { title: 'VECTOR', url: link,
+      return { title: BRAND, url: link,
         body: mins > 0
           ? `${name || 'Your contest'} begins in about ${mins} minutes. The rated window is about to open.`
           : `${name || 'Your contest'} is about to begin. The rated window is open.` };
     }
     case 'CONTEST_CLOSED':
-      return { title: 'VECTOR', url: link, body: `${name || 'The contest'} has closed. Your result will be synchronised shortly.` };
+      return { title: BRAND, url: link, body: `${name || 'The contest'} has closed. Your result will be synchronised shortly.` };
     case 'OBJECTIVE_COMPLETE':
-      return { title: 'VECTOR', url: '/calendar', body: "Today's objective is complete, and the execution is recorded." };
+      return { title: BRAND, url: '/calendar', body: "Today's objective is complete, and the execution is recorded." };
     case 'CONTEST_MISSED':
-      return { title: 'VECTOR', url: '/contests',
+      return { title: BRAND, url: '/contests',
         body: 'A committed contest was not attended, and no credit is given retrospectively. The next rated contest has been identified.' };
   }
 }

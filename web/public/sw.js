@@ -1,5 +1,5 @@
-/* VECTOR service worker: offline shell + push with deep links. */
-const CACHE = 'vector-shell-v3';
+/* CAIRN service worker: offline shell + push with deep links. */
+const CACHE = 'cairn-shell-v1';
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (e) => {
@@ -34,7 +34,7 @@ self.addEventListener('fetch', (e) => {
 });
 
 self.addEventListener('push', (e) => {
-  let data = { title: 'VECTOR', body: '', url: '/today' };
+  let data = { title: 'CAIRN', body: '', url: '/today' };
   try { data = { ...data, ...e.data.json() }; } catch (_) {}
   e.waitUntil(self.registration.showNotification(data.title, {
     body: data.body, icon: '/icon-192.png', badge: '/icon-192.png', data: { url: data.url }, tag: data.url,

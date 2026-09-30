@@ -18,8 +18,8 @@ export interface StatRow {
 
 const STALE_AFTER_MS: Record<Platform, number> = {
   codeforces: 6 * 3_600_000,
-  leetcode: 48 * 3_600_000,
-  codechef: 48 * 3_600_000,
+  leetcode: 12 * 3_600_000,
+  codechef: 12 * 3_600_000,
   smartinterviews: 14 * 86_400_000,
   interviewbit: 14 * 86_400_000,
   hackerrank: 14 * 86_400_000,

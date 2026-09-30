@@ -13,6 +13,7 @@ import { pushConfigured } from '../services/notify.js';
 import { getUser, loadScore, recordEvent } from '../services/state.js';
 import { runJob } from '../services/jobs.js';
 import { syncPlatform } from '../services/sync.js';
+import { rebaseline } from '../services/baseline.js';
 import {
   analyticsView, awardsView, calendarView, contestsView, dayDetail, overview, problemsView,
   scoreView, simulate, sourcesView, trajectoryView,
@@ -119,7 +120,9 @@ api.post('/contests/:id/attended', wrap(async (req, res) => {
   const id = z.string().uuid().parse(req.params.id);
   const c = (await pool.query('select platform, start_at from contests where id=$1', [id])).rows[0];
   if (!c) return res.status(404).json({ error: 'NOT_FOUND' });
-  if (ADAPTERS[c.platform as Platform].capability === 'AUTOMATIC') return res.status(409).json({ error: 'VERIFIED_SOURCE', message: 'This platform is verified automatically, so manual recording is not available.' });
+  const linkedPlat = ADAPTERS[c.platform as Platform].capability === 'AUTOMATIC'
+    && (await pool.query(`select 1 from platform_accounts where user_id=$1 and platform=$2 and username <> ''`, [uid(req), c.platform])).rowCount;
+  if (linkedPlat) return res.status(409).json({ error: 'VERIFIED_SOURCE', message: 'This platform is read from your public profile, so manual recording is not available.' });
   if ((c.start_at as Date).getTime() > Date.now()) return res.status(409).json({ error: 'NOT_STARTED' });
   await tx(async (cl) => {
     await recordParticipation(cl, uid(req), c.platform, id, { source: 'MANUAL' });
@@ -131,7 +134,8 @@ api.post('/contests/:id/attended', wrap(async (req, res) => {
 api.post('/problems/solve', wrap(async (req, res) => {
   const b = z.object({ platform: platformSchema, externalId: z.string().min(1).max(200) }).parse(req.body);
   if (ADAPTERS[b.platform].capability === 'AUTOMATIC') {
-    return res.status(409).json({ error: 'VERIFIED_SOURCE', message: 'Codeforces is verified automatically. Run a synchronisation instead.' });
+    const linked = (await pool.query(`select 1 from platform_accounts where user_id=$1 and platform=$2 and username <> ''`, [uid(req), b.platform])).rowCount;
+    if (linked) return res.status(409).json({ error: 'VERIFIED_SOURCE', message: 'This platform is read from your public profile. Run a synchronisation instead.' });
   }
   if (!RATED_PLATFORMS.includes(b.platform as any)) return res.status(400).json({ error: 'NOT_A_PROBLEM_PLATFORM' });
   const r = await processAccepted(uid(req), { platform: b.platform, externalProblemId: b.externalId, acceptedAt: new Date(), source: 'MANUAL' });
@@ -179,11 +183,7 @@ api.post('/import', wrap(async (req, res) => {
     );
     if (b.problemsSolved !== undefined || b.contests !== undefined) {
       // Re-baseline: the imported totals are authoritative as of now.
-      await c.query(
-        `update platform_stats set base_problems = coalesce($3, base_problems + (select count(*)::int from solved_problems sp where sp.user_id=$1 and sp.platform=$2 and sp.first_accepted_at > platform_stats.base_as_of)),
-            base_contests = coalesce($4, base_contests), base_as_of = $5 where user_id=$1 and platform=$2`,
-        [uid(req), b.platform, b.problemsSolved ?? null, b.contests ?? null, now],
-      );
+      await rebaseline(c, uid(req), b.platform, { problems: b.problemsSolved, contests: b.contests }, now);
     }
     if (b.contribution !== undefined) await c.query('update platform_stats set contribution=$3 where user_id=$1 and platform=$2', [uid(req), b.platform, b.contribution]);
     await c.query('update platform_stats set source_status=$3, source_note=$4, last_updated_at=$5 where user_id=$1 and platform=$2', [uid(req), b.platform, status, b.note ?? null, now]);
