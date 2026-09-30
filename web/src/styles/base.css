@@ -1,4 +1,7 @@
 @import '@fontsource/bayon/400.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/700.css';
 
 *, *::before, *::after { box-sizing: border-box; }
 
@@ -10,9 +13,10 @@ body {
   background: var(--color-surface-primary);
   color: var(--color-text-primary);
   font-family: var(--font-ui);
-  font-size: var(--text-xs);
-  line-height: 1.4;
+  font-size: var(--fs-ui);
+  line-height: 1.45;
   font-weight: var(--weight-regular);
+  font-feature-settings: 'tnum' 1, 'ss01' 1;
   -webkit-font-smoothing: antialiased;
   overflow-x: hidden;
 }
@@ -21,14 +25,12 @@ h1, h2, h3, h4, p, ul, ol, dl, dd, figure { margin: 0; padding: 0; }
 ul, ol { list-style: none; }
 button, input, select, textarea { font: inherit; color: inherit; }
 img, svg { display: block; max-width: 100%; }
+summary { cursor: pointer; }
 
-a { color: var(--link); text-underline-offset: 3px; text-decoration-thickness: 1px; }
+a { color: var(--link); text-underline-offset: 4px; text-decoration-thickness: 1px; }
 a:hover { text-decoration-thickness: 2px; }
 
-:focus-visible {
-  outline: 3px solid var(--fg);
-  outline-offset: 3px;
-}
+:focus-visible { outline: 3px solid var(--fg); outline-offset: 3px; }
 .block-ink :focus-visible { outline-color: var(--color-text-light); }
 
 .sr-only {

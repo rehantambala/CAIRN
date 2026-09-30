@@ -3,17 +3,19 @@ import { ago } from '../format';
 import { useReveal } from '../hooks';
 import type { SourceState } from '../api';
 
-export function Loading({ label = 'Loading' }: { label?: string }) {
-  return <div className="loading frame" role="status" aria-live="polite">{label}</div>;
+export function Loading({ label = 'One moment' }: { label?: string }) {
+  return <div className="loading frame" role="status" aria-live="polite">{label}…</div>;
 }
 
 export function ErrorBanner({ error, retry }: { error: Error; retry?: () => void }) {
   return (
     <div className="frame" style={{ padding: 'var(--space-8) var(--gutter)' }}>
-      <div className="banner banner--error" role="alert">
-        <p className="label">SYNC ERROR</p>
-        <p>{error.message === 'UNAUTHENTICATED' ? 'Session ended. Sign in again.' : `Data could not be loaded (${error.message}). Nothing on this page has been changed.`}</p>
-        {retry && <div className="btn-row" style={{ marginTop: 'var(--space-4)' }}><button className="btn btn--ghost btn--sm" onClick={retry}>Retry</button></div>}
+      <div className="banner" role="alert">
+        <p className="h-sub">We could not load this</p>
+        <p className="body" style={{ marginTop: 'var(--space-3)' }}>
+          {error.message === 'UNAUTHENTICATED' ? 'Your session ended. Sign in again.' : `${error.message}. Nothing has been changed.`}
+        </p>
+        {retry && <div className="btn-row" style={{ marginTop: 'var(--space-4)' }}><button className="btn btn--sm" onClick={retry}>Try again</button></div>}
       </div>
     </div>
   );
@@ -22,34 +24,31 @@ export function ErrorBanner({ error, retry }: { error: Error; retry?: () => void
 export function Empty({ title, children }: { title: string; children?: ReactNode }) {
   return (
     <div className="empty">
-      <p className="label">{title}</p>
-      {children && <p className="empty__t" style={{ marginTop: 'var(--space-3)' }}>{children}</p>}
+      <p className="kicker">{title}</p>
+      {children && <p className="empty__t" style={{ marginTop: 'var(--space-4)' }}>{children}</p>}
     </div>
   );
 }
 
+const SOURCE_WORD: Record<SourceState, string> = { LIVE: 'Live', SYNCED: 'Synced', IMPORTED: 'Imported', MANUAL: 'Manual', STALE: 'Stale', ERROR: 'Error' };
+
 export function SourceChip({ status, updatedAt, now }: { status: SourceState; updatedAt?: string | null; now?: number }) {
   return (
     <span className="row" style={{ gap: 'var(--space-3)' }}>
-      <span className="chip" data-s={status}>{status}</span>
+      <span className="chip" data-s={status}>{SOURCE_WORD[status]}</span>
       {updatedAt !== undefined && <span className="muted">{ago(updatedAt, now)}</span>}
     </span>
   );
 }
 
 export function Section({
-  no, q, tone, children, id, className = '', label,
-}: { no: string; q: string; tone?: 'pink' | 'deep' | 'ink'; children: ReactNode; id?: string; className?: string; label?: string }) {
+  kicker, tone, children, id, className = '', label,
+}: { kicker?: string; tone?: 'pink' | 'deep' | 'ink'; children: ReactNode; id?: string; className?: string; label?: string }) {
   const r = useReveal<HTMLElement>();
   return (
-    <section
-      id={id}
-      ref={r.ref}
-      aria-label={label ?? q}
-      className={`section ${tone ? `block block-${tone}` : ''} ${r.className} ${className}`}
-    >
+    <section id={id} ref={r.ref} aria-label={label ?? kicker} className={`section ${tone ? `block block-${tone}` : ''} ${r.className} ${className}`}>
       <div className="frame">
-        <div className="eyebrow"><span className="eyebrow__no">{no}</span><span className="eyebrow__q">{q}</span></div>
+        {kicker && <p className="kicker" style={{ marginBottom: 'var(--space-6)' }}>{kicker}</p>}
         {children}
       </div>
     </section>
@@ -58,17 +57,17 @@ export function Section({
 
 export function PageHead({ title, sub, children }: { title: string; sub?: string; children?: ReactNode }) {
   return (
-    <div className="page-head-wrap">
-      <header className="page-head frame enter">
-        <h1 className="h-page">{title}</h1>
-        {sub && <p className="page-head__sub">{sub}</p>}
+    <header className="pagehead block block-pink">
+      <div className="frame enter">
+        <h1 className="display fig-2xl">{title}</h1>
+        {sub && <p className="lead" style={{ marginTop: 'var(--space-5)' }}>{sub}</p>}
         {children}
-      </header>
-    </div>
+      </div>
+    </header>
   );
 }
 
-/** Polite live region: announces material score changes without moving focus. */
+/** Polite live region: announces material changes without moving focus. */
 export function useAnnouncer() {
   const [msg, setMsg] = useState('');
   const t = useRef<number | undefined>(undefined);

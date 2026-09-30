@@ -39,20 +39,20 @@ export function Problems() {
 
   return (
     <>
-      <PageHead title="Problems" sub="Selected from a curated pool of real problems. Already-solved problems are never suggested." />
+      <PageHead title="Practice" sub="Real problems, picked for you. Anything already solved is never suggested again." />
 
       <section className="section" aria-label="Selected today">
         <div className="frame">
-          <p className="eyebrow"><span className="eyebrow__no">01</span><span className="eyebrow__q">Selected today</span></p>
+          <p className="kicker" style={{ marginBottom: 'var(--space-6)' }}>Picked for today</p>
           {data.selectedToday.length === 0
-            ? <Empty title="Nothing selected">Today’s objective has no problem suggestions. Open Today for practice links.</Empty>
+            ? <Empty title="Nothing selected">Today has no problem suggestions. Use the pool below.</Empty>
             : (
               <ul className="ledger">
                 {data.selectedToday.map((s) => (
                   <li key={s.platform + s.externalId} className="ledger__row">
                     <span className="ledger__k">{PLAT_LABEL[s.platform]} · {s.difficulty ?? '—'}{s.topic ? ` · ${s.topic}` : ''}</span>
                     <span className="ledger__v"><a href={s.url} target="_blank" rel="noreferrer noopener">{s.title}</a><br /><span className="muted">{s.reason}</span></span>
-                    <span className="state-tag">{s.solved ? 'VERIFIED' : 'OPEN'}</span>
+                    <span className="state">{s.solved ? '✓ Done' : '○ Open'}</span>
                   </li>
                 ))}
               </ul>
@@ -62,7 +62,7 @@ export function Problems() {
 
       <section className="section block block-deep" aria-label="Recently solved">
         <div className="frame">
-          <p className="eyebrow"><span className="eyebrow__no">02</span><span className="eyebrow__q">Recently solved</span></p>
+          <p className="kicker" style={{ marginBottom: 'var(--space-6)' }}>Recently solved</p>
           {data.recentlySolved.length === 0
             ? <Empty title="No accepted problems recorded">Accepted submissions appear here after a sync or import.</Empty>
             : (
@@ -71,7 +71,7 @@ export function Problems() {
                   <li key={s.platform + s.id} className="ledger__row">
                     <span className="ledger__k">{PLAT_LABEL[s.platform]}{s.difficulty ? ` · ${s.difficulty}` : ''}</span>
                     <span className="ledger__v">{s.url ? <a href={s.url} target="_blank" rel="noreferrer noopener">{s.title}</a> : s.title}</span>
-                    <span className="muted">{new Date(s.at).getFullYear() < 2000 ? 'before baseline' : ago(s.at, now)} · {s.source === 'MANUAL' ? 'MANUAL' : 'VERIFIED'}</span>
+                    <span className="muted">{new Date(s.at).getFullYear() < 2000 ? 'before baseline' : ago(s.at, now)} · {s.source === 'MANUAL' ? 'self-marked' : 'verified'}</span>
                   </li>
                 ))}
               </ul>
@@ -81,8 +81,8 @@ export function Problems() {
 
       <section className="section" aria-label="Pool">
         <div className="frame">
-          <p className="eyebrow"><span className="eyebrow__no">03</span><span className="eyebrow__q">Unsolved recommendations</span></p>
-          <div className="filters">
+          <p className="kicker" style={{ marginBottom: 'var(--space-6)' }}>Browse the pool</p>
+          <div className="form-grid">
             <div className="field"><label htmlFor="q">Search</label><input id="q" className="input" type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Title or topic" /></div>
             <div className="field"><label htmlFor="pl">Platform</label>
               <select id="pl" className="select" value={plat} onChange={(e) => setPlat(e.target.value as any)}>
@@ -102,8 +102,8 @@ export function Problems() {
                   <li key={p.platform + p.id} className="ledger__row">
                     <span className="ledger__k">{PLAT_LABEL[p.platform]} · {p.difficulty ?? '—'}</span>
                     <span className="ledger__v">{p.url ? <a href={p.url} target="_blank" rel="noreferrer noopener">{p.title}</a> : p.title}{p.topic && <span className="muted"> · {p.topic}</span>}</span>
-                    {p.solved ? <span className="state-tag">SOLVED</span>
-                      : data.manualAllowed[p.platform] ? <button className="btn btn--ghost btn--sm" disabled={busy !== null} aria-busy={busy === p.id} onClick={() => mark(p)} aria-label={`Mark ${p.title} as solved manually`}>Mark solved</button>
+                    {p.solved ? <span className="state">✓ Solved</span>
+                      : data.manualAllowed[p.platform] ? <button className="btn btn--ghost btn--sm" disabled={busy !== null} aria-busy={busy === p.id} onClick={() => mark(p)} aria-label={`Mark ${p.title} as solved manually`}>I solved it</button>
                       : <span className="muted">Auto-verified</span>}
                   </li>
                 ))}

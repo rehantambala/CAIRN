@@ -26,16 +26,16 @@ export function Settings() {
 
   return (
     <>
-      <PageHead title="Settings" sub="Profile, sources and notifications. No platform passwords are ever stored." />
+      <PageHead title="Settings" sub="Your goal, your sources, your reminders. No platform password is ever stored." />
       {region}
-      <Section no="01" q="Objective" label="Objective"><Profile data={data} onSaved={() => { say('Saved.'); reload(); }} /></Section>
-      <Section no="02" q="Sources" tone="deep" label="Sources">
+      <Section kicker="Your goal" label="Goal"><Profile data={data} onSaved={() => { say('Saved.'); reload(); }} /></Section>
+      <Section kicker="Your sources" tone="deep" label="Sources">
         <div className="stack-lg">
           {data.sources.map((s) => <SourceForm key={s.platform} s={s} now={now} onDone={() => { say(`${s.label} updated.`); reload(); }} />)}
         </div>
       </Section>
-      <Section no="03" q="Notifications" label="Notifications"><Notifications push={data.push} /></Section>
-      {data.dev && <Section no="04" q="Development" tone="ink" label="Development tools"><Dev onDone={reload} /></Section>}
+      <Section kicker="Reminders" label="Reminders"><Notifications push={data.push} /></Section>
+      {data.dev && <Section kicker="Development" tone="ink" label="Development tools"><Dev onDone={reload} /></Section>}
     </>
   );
 }
@@ -52,9 +52,9 @@ function Profile({ data, onSaved }: { data: Payload; onSaved: () => void }) {
   return (
     <form onSubmit={submit} className="form-grid">
       <div className="field"><label htmlFor="dn">Display name</label><input id="dn" className="input" value={f.displayName} onChange={(e) => setF({ ...f, displayName: e.target.value })} /></div>
-      <div className="field"><label htmlFor="tz">Timezone</label><input id="tz" className="input" value={f.timezone} onChange={(e) => setF({ ...f, timezone: e.target.value })} aria-describedby="tzh" /><span id="tzh" className="hint">Days close at midnight in this zone.</span></div>
+      <div className="field"><label htmlFor="tz">Timezone</label><input id="tz" className="input" value={f.timezone} onChange={(e) => setF({ ...f, timezone: e.target.value })} aria-describedby="tzh" /><span id="tzh" className="hint">Each day closes at midnight in this zone.</span></div>
       <div className="field"><label htmlFor="ts">Target score (minimum)</label><input id="ts" className="input" type="number" min={1000} value={f.targetScore} onChange={(e) => setF({ ...f, targetScore: Number(e.target.value) })} /></div>
-      <div className="field"><label htmlFor="td">Target date (optional)</label><input id="td" className="input" type="date" value={f.targetDate} onChange={(e) => setF({ ...f, targetDate: e.target.value })} aria-describedby="tdh" /><span id="tdh" className="hint">Used only to measure pace. It is never presented as a guarantee.</span></div>
+      <div className="field"><label htmlFor="td">Target date (optional)</label><input id="td" className="input" type="date" value={f.targetDate} onChange={(e) => setF({ ...f, targetDate: e.target.value })} aria-describedby="tdh" /><span id="tdh" className="hint">Used only to measure pace. It is never shown as a promise.</span></div>
       <div className="field"><label htmlFor="dm">Daily time budget (minutes)</label><input id="dm" className="input" type="number" min={30} max={480} value={f.dailyMinutes} onChange={(e) => setF({ ...f, dailyMinutes: Number(e.target.value) })} /></div>
       <div className="btn-row" style={{ alignSelf: 'end' }}><button className="btn" disabled={busy} aria-busy={busy}>{busy ? 'Saving' : 'Save'}</button></div>
       {err && <p className="error-text" role="alert">{err}</p>}
@@ -88,17 +88,17 @@ function SourceForm({ s, now, onDone }: { s: Source; now: number; onDone: () => 
   return (
     <div className="src">
       <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h3 className="display-xl fig-lg">{s.label}</h3>
+        <h3 className="display fig-xl">{s.label}</h3>
         <SourceChip status={s.status} updatedAt={s.updatedAt} now={now} />
       </div>
-      <p className="serif-lead">{s.capabilityNote}</p>
+      <p className="lead">{s.capabilityNote}</p>
 
       {s.capability === 'AUTOMATIC' && (
         <div className="btn-row" style={{ alignItems: 'end' }}>
           <div className="field" style={{ minWidth: 220 }}><label htmlFor={`u-${s.platform}`}>Handle</label><input id={`u-${s.platform}`} className="input" value={username} onChange={(e) => setUsername(e.target.value)} /></div>
           <button className="btn btn--ghost" disabled={busy !== null} aria-busy={busy === 'save'} onClick={() => run('save', () => put(`/accounts/${s.platform}`, { username }), 'Handle saved.')}>Save handle</button>
-          <button className="btn" disabled={busy !== null || !username} aria-busy={busy === 'sync'} onClick={() => run('sync', async () => { const r = await post<{ ok: boolean; message: string }>(`/sync/${s.platform}`); if (!r.ok) throw new Error(r.message); }, 'SYNCED.')}>{busy === 'sync' ? 'Syncing' : 'Sync now'}</button>
-          <button className="btn btn--ghost" disabled={busy !== null} onClick={() => run('derive', () => post('/codeforces/derive-from-history'), 'Counts now derive from synced history.')}>Use synced history as the source of truth</button>
+          <button className="btn" disabled={busy !== null || !username} aria-busy={busy === 'sync'} onClick={() => run('sync', async () => { const r = await post<{ ok: boolean; message: string }>(`/sync/${s.platform}`); if (!r.ok) throw new Error(r.message); }, 'Synced.')}>{busy === 'sync' ? 'Syncing' : 'Sync now'}</button>
+          <button className="btn btn--ghost" disabled={busy !== null} onClick={() => run('derive', () => post('/codeforces/derive-from-history'), 'Counts now derive from synced history.')}>Count from synced history</button>
         </div>
       )}
 
@@ -115,7 +115,7 @@ function SourceForm({ s, now, onDone }: { s: Source; now: number; onDone: () => 
         )}
         <div className="btn-row" style={{ alignSelf: 'end' }}><button className="btn btn--ghost" disabled={busy !== null} aria-busy={busy === 'import'}>{rated ? 'Import stats' : 'Save'}</button></div>
       </form>
-      {msg && <p className="label" role="status">{msg}</p>}
+      {msg && <p className="meta" role="status">{msg}</p>}
       {err && <p className="error-text" role="alert">{err}</p>}
     </div>
   );
@@ -138,11 +138,11 @@ function Notifications({ push }: { push: Payload['push'] }) {
   }
   return (
     <div className="stack">
-      <p className="serif-lead">Reminders: 24 hours before a contest, then 1 hour and about 10 minutes before when you have committed, and a calm note when a window closes. No streak warnings.</p>
-      <p className="label">Server push: {push.configured ? 'CONFIGURED' : 'NOT CONFIGURED'}</p>
+      <p className="lead">Before a contest: 24 hours, then 1 hour and about 10 minutes when you have committed, and a calm note when a window closes. No guilt, no streak-shaming.</p>
+      <p className="meta">Push on the server: {push.configured ? 'ready' : 'not set up yet'}</p>
       {!supported && <p className="muted">This browser does not support push. On iOS, install VECTOR to the home screen first.</p>}
       <div className="btn-row"><button className="btn" onClick={enable} disabled={!supported || !push.configured}>Enable on this device</button></div>
-      {state && <p className="label" role="status">{state}</p>}
+      {state && <p className="meta" role="status">{state}</p>}
     </div>
   );
 }
@@ -160,13 +160,13 @@ function Dev({ onDone }: { onDone: () => void }) {
   }
   return (
     <div className="stack">
-      <p className="serif-lead">Simulates an authoritative accepted submission through the real pipeline. Only exists outside production.</p>
+      <p className="lead">Simulates an authoritative accepted submission through the real pipeline. Only exists outside production.</p>
       <div className="btn-row" style={{ alignItems: 'end' }}>
         <div className="field"><label htmlFor="dp">Platform</label><select id="dp" className="select" value={plat} onChange={(e) => setPlat(e.target.value as Platform)}><option value="leetcode">LeetCode</option><option value="codechef">CodeChef</option><option value="codeforces">Codeforces</option></select></div>
         <button className="btn" onClick={accept}>Simulate accepted problem</button>
         <button className="btn btn--ghost" onClick={() => jobs('all')}>Jobs</button>
       </div>
-      {out && <p className="label" role="status">{out}</p>}
+      {out && <p className="meta" role="status">{out}</p>}
       <p className="muted">Synced {ago(new Date().toISOString())}</p>
     </div>
   );

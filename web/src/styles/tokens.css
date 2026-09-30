@@ -11,14 +11,15 @@
   --bg: var(--color-surface-primary);
   --fg: var(--color-text-primary);
   --link: var(--color-text-link);
-  --mark: var(--color-accent);      /* large type, marks and fills only (3.3:1 on surface) */
+  --mark: var(--color-accent);      /* large type and fills only: 3:1 on pink, never small text */
   --rule: var(--color-text-primary);
 
-  --font-serif: Times, "Times New Roman", "Liberation Serif", serif;
-  --font-ui: "Neue Montreal", "Helvetica Neue", Helvetica, Arial, "Liberation Sans", sans-serif;
+  /* Families. Neue Montreal first so a licensed install wins; Inter is the shipped stand-in. */
+  --font-serif: Times, "Times New Roman", Tinos, "Liberation Serif", serif;
+  --font-ui: "Neue Montreal", Inter, "Helvetica Neue", Helvetica, Arial, sans-serif;
   --font-display: "Bayon", Impact, "Arial Narrow", sans-serif;
 
-  /* Reference scale. Display sizes are for display only; UI text is xs/sm. */
+  /* Reference scale (desktop ceiling). Each step is recomposed on small screens, not just shrunk. */
   --text-xs: 16px;
   --text-sm: 19px;
   --text-base: 35px;
@@ -26,6 +27,13 @@
   --text-xl: 49px;
   --text-2xl: 82px;
   --text-3xl: 219px;
+
+  --fs-meta: 16px;
+  --fs-ui: clamp(17px, 0.4vw + 15.5px, 19px);
+  --fs-lead: clamp(24px, 2.2vw + 10px, 35px);
+  --fs-statement: clamp(32px, 3.6vw + 8px, 49px);
+  --fs-display: clamp(56px, 7vw + 8px, 82px);
+  --fs-hero: clamp(120px, 36vw, 219px);
 
   --weight-regular: 400;
   --weight-medium: 500;
@@ -57,6 +65,7 @@
   --gutter: var(--space-5);
   --frame: 1440px;
   --nav-h: 67px;
+  --dock-h: 72px;
 }
 
 @media (min-width: 900px) {

@@ -1,12 +1,13 @@
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
-import type { Next, Item, Overview } from '../api';
+import type { Item, Next } from '../api';
 import { countdown, fmt, shortK } from '../format';
-import { useCountTo, useNow } from '../hooks';
+import { useCountTo } from '../hooks';
+import { doneHeadline } from '../copy';
 
 export function ScoreFigure({ value, className = 'fig-hero' }: { value: number; className?: string }) {
   const shown = useCountTo(value);
-  return <span className={`display-xl ${className}`} aria-label={fmt(value)}>{fmt(shown)}</span>;
+  return <span className={`display ${className}`} aria-label={fmt(value)}>{fmt(shown)}</span>;
 }
 
 /** Announces a material score change via a polite live region. */
@@ -23,84 +24,73 @@ export function ScoreAnnouncer({ value }: { value: number }) {
   return <div ref={ref} className="sr-only" role="status" aria-live="polite" aria-atomic="true" />;
 }
 
-/**
- * Movement through the target: large milestone numerals on one line, filled up to the current score.
- * Positions are even between milestones; the marker is interpolated inside its segment.
- */
-export function Milestones({ current, list }: { current: number; list: number[] }) {
-  const points = [current < list[0] ? current : list[0], ...list];
-  const start = Math.min(current, list[0]);
-  const stops = [start, ...list];
-  let idx = 0;
-  while (idx < stops.length - 1 && current >= stops[idx + 1]) idx++;
-  const a = stops[idx], b = stops[idx + 1] ?? a;
-  const frac = b === a ? 1 : (current - a) / (b - a);
-  const pos = ((idx + frac) / (stops.length - 1)) * 100;
-  void points;
+/** Progress from zero to the target, with the milestones as ticks. Fill is the true ratio. */
+export function GoalBar({ current, target, milestones }: { current: number; target: number; milestones: number[] }) {
+  const pct = Math.min(100, (current / target) * 100);
   return (
-    <div className="ms" role="img" aria-label={`${fmt(current)} of 25,000 plus. Next milestone ${shortK(list.find((m) => m > current) ?? 25000)}.`}>
-      <div className="ms__track" aria-hidden="true">
-        <div className="ms__fill" style={{ width: `${pos}%` }} />
-        <div className="ms__dot" style={{ left: `${pos}%` }} />
+    <div role="img" aria-label={`${fmt(current)} of ${fmt(target)}. ${Math.floor(pct)} percent.`}>
+      <div className="gbar" aria-hidden="true">
+        <div className="gbar__fill" style={{ width: `${pct}%` }} />
+        {milestones.map((m) => <span key={m} className={`gbar__tick${m >= target ? ' is-target' : ''}`} style={{ left: `${Math.min(100, (m / target) * 100)}%` }} />)}
       </div>
-      <ol className="ms__list" aria-hidden="true">
-        {stops.map((m, i) => (
-          <li key={m} className={`ms__item${current >= m && i > 0 ? ' is-reached' : ''}${i === 0 ? ' is-current' : ''}${i === stops.length - 1 ? ' is-target' : ''}`}>
-            <span className="display-xl ms__num">{i === 0 ? fmt(m) : shortK(m)}</span>
-          </li>
-        ))}
-      </ol>
+      <div className="gbar__labels" aria-hidden="true">
+        {milestones.map((m) => <span key={m} style={{ left: `${Math.min(100, (m / target) * 100)}%` }} className={m >= target ? 'mark' : ''}>{shortK(m)}</span>)}
+      </div>
     </div>
   );
 }
 
-export function NextBlock({ next, now, fetchedAt }: { next: Next; now: number; fetchedAt: number }) {
+export function Pips({ total, on }: { total: number; on: number }) {
+  return (
+    <span className="pips" aria-hidden="true">
+      {Array.from({ length: Math.min(total, 12) }, (_, i) => <span key={i} className={`pip${i < on ? ' is-on' : ''}`} />)}
+    </span>
+  );
+}
+
+export function NextBlock({ next, items, delta, now, fetchedAt }: { next: Next; items: Item[]; delta: number; now: number; fetchedAt: number }) {
   const left = next.startsInMs !== null ? Math.max(0, next.startsInMs - (now - fetchedAt)) : null;
-  const live = next.kind === 'CONTEST' && next.startsInMs === 0;
+  const isContest = next.kind === 'CONTEST' || next.kind === 'COMMIT';
+  const complete = next.kind === 'COMPLETE';
+  const firstOpen = items.find((i) => !i.completed && i.type === 'PROBLEM_QUOTA' && i.suggestions.length > 0);
+  const url = firstOpen?.suggestions[0]?.url ?? firstOpen?.practiceUrl ?? null;
+  const headline = (next.target ?? next.title).replace(/^Start with\s+/i, '').replace(/^Solve\s+/i, '');
+
+  if (complete) {
+    return (
+      <div className="next next--done">
+        <p className="kicker">Next</p>
+        <h2 className="display fig-2xl next__done">{doneHeadline(delta, true).replace(/\.$/, '')}.</h2>
+        <p className="lead">{next.reason}</p>
+        <div className="btn-row" style={{ marginTop: 'var(--space-8)' }}>
+          <Link to="/log" className="btn btn--big">See your log</Link>
+          <Link to="/path" className="btn btn--ghost btn--big">Check the path</Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="next">
-      <p className="label next__label">NEXT</p>
-      <h3 className="display-xl next__title">{next.title}</h3>
-      <p className="next__detail">
-        {next.kind === 'CONTEST' && !live && left !== null
-          ? <>Rated contest · starts in <span className="mark">{countdown(left)}</span></>
-          : next.detail}
-      </p>
-      {next.target && <p className="next__target"><span className="label">Target</span> {next.target}</p>}
-      <div className="next__why">
-        <p className="label">Why this is next</p>
-        <p className="serif-lead">{next.reason}</p>
-      </div>
-      <div className="btn-row" style={{ marginTop: 'var(--space-6)' }}>
-        <Link to={next.href} className="btn">{next.kind === 'CONTEST' || next.kind === 'COMMIT' ? 'Open contest' : next.kind === 'COMPLETE' ? 'View calendar' : 'Open today'}</Link>
+      <p className="kicker">Do this next</p>
+      {isContest && left !== null && left > 0 ? (
+        <>
+          <p className="lead next__pre">{next.title} starts in</p>
+          <p className="display fig-hero mark next__count" aria-label={`Starts in ${countdown(left)}`}>{countdown(left)}</p>
+        </>
+      ) : (
+        <h2 className="statement statement--wide next__title">{headline}</h2>
+      )}
+      {!isContest && <p className="body next__detail">{next.detail}{next.target ? ` · ${next.title}` : ''}</p>}
+      <p className="lead next__why">{next.reason}</p>
+      <div className="btn-row" style={{ marginTop: 'var(--space-8)' }}>
+        {isContest
+          ? <Link to={next.href} className="btn btn--big">Open the contest</Link>
+          : url
+            ? <a href={url} target="_blank" rel="noreferrer noopener" className="btn btn--big">Start now<span className="sr-only"> (opens in a new tab)</span></a>
+            : <Link to={next.href} className="btn btn--big">Open today</Link>}
+        {!isContest && <a href="#today-list" className="link-arrow">Or see all of today</a>}
       </div>
     </div>
   );
 }
-
-export function ItemLine({ item, index }: { item: Item; index: number }) {
-  const done = item.completed;
-  const status = done ? (item.verification === 'VERIFIED' ? 'VERIFIED' : 'MANUAL') : item.verification === 'PENDING' && item.completedCount > 0 ? 'IN PROGRESS' : 'OPEN';
-  const what = item.type === 'PROBLEM_QUOTA' ? `${item.quota} selected problem${item.quota === 1 ? '' : 's'}` : item.type === 'CONTEST' ? 'Rated contest' : item.type === 'CONTEST_PREP' ? `Preparation · ${item.minutes} min` : 'Rest';
-  return (
-    <li className={`tline${done ? ' is-done' : ''}`}>
-      <span className="tline__no display-xl" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
-      <div className="tline__body">
-        <p className="tline__plat">{item.type === 'CONTEST' ? item.title : item.platform ? item.title : item.title}</p>
-        <p className="tline__what">{what}</p>
-        {!item.required && item.type !== 'REST' && <p className="muted">Optional</p>}
-      </div>
-      <div className="tline__state">
-        <span className="tline__mark" aria-hidden="true">{done ? '✓' : '○'}</span>
-        <span className="state-tag">{status}</span>
-        {item.type === 'PROBLEM_QUOTA' && <span className="muted">{item.completedCount} of {item.quota}</span>}
-      </div>
-    </li>
-  );
-}
-
-export function sourceSummary(o: Overview) {
-  return o.sources.filter((s) => ['leetcode', 'codechef', 'codeforces', 'smartinterviews'].includes(s.platform));
-}
-
-export function useTicker() { return useNow(15_000); }

@@ -1,119 +1,142 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { post, type Item, type Objective, type Next, type Platform } from '../api';
-import { longDate, signed } from '../format';
+import type { DayState, Overview } from '../api';
+import { ago, fmt, signed } from '../format';
 import { useFetch, useNow } from '../hooks';
-import { ErrorBanner, Loading, PageHead, Section, Empty, useAnnouncer } from '../components/ui';
-import { NextBlock } from '../components/score';
+import { dayLine, dayMood, gradient, greetingWord, streakLine, STATUS_WORD, statusLine } from '../copy';
+import { ErrorBanner, Loading, Section, SourceChip, Empty } from '../components/ui';
+import { GoalBar, NextBlock, ScoreAnnouncer, ScoreFigure } from '../components/score';
+import { TodayItem } from '../components/TodayItem';
 
-interface TodayPayload { date: string; objective: Objective; next: Next }
+interface CalDay { date: string; state: DayState; verified: boolean }
+interface Cal { today: string; days: CalDay[] }
+
+const hourIn = (tz: string) => Number(new Intl.DateTimeFormat('en-GB', { timeZone: tz, hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
+
+function lastSeven(today: string, days: CalDay[]) {
+  const by = new Map(days.map((d) => [d.date, d]));
+  const out: { date: string; state: DayState | 'NONE'; verified: boolean }[] = [];
+  const [y, m, d] = today.split('-').map(Number);
+  for (let i = 6; i >= 0; i--) {
+    const k = new Date(Date.UTC(y, m - 1, d - i)).toISOString().slice(0, 10);
+    const r = by.get(k);
+    out.push({ date: k, state: r?.state ?? 'NONE', verified: r?.verified ?? false });
+  }
+  return out;
+}
 
 export function Today() {
-  const { data, error, loading, reload } = useFetch<TodayPayload>('/today');
-  const now = useNow();
-  const [fetchedAt] = useState(() => Date.now());
+  const { data: o, error, loading, reload } = useFetch<Overview>('/overview');
+  const { data: cal } = useFetch<Cal>('/calendar');
+  const now = useNow(15_000);
+  const fetchedAt = useMemo(() => Date.now(), [o]); // eslint-disable-line react-hooks/exhaustive-deps
   if (loading) return <Loading />;
-  if (error || !data) return <ErrorBanner error={error ?? new Error('NO_DATA')} retry={reload} />;
-  const o = data.objective;
-  const required = o.items.filter((i) => i.required);
+  if (error || !o) return <ErrorBanner error={error ?? new Error('NO_DATA')} retry={reload} />;
+
+  const t = o.trajectory;
+  const required = o.today.items.filter((i) => i.required);
   const done = required.filter((i) => i.completed).length;
+  const contestSoon = o.upcomingContests.find((c) => c.committed && c.startAt > Date.now());
+  const ctx = {
+    date: o.date, hour: hourIn(o.user.timezone), done, total: required.length, streak: o.consistency.consecutiveComplete,
+    isRest: o.today.isRest, allVerified: required.every((i) => i.verification === 'VERIFIED'),
+    contestSoonMs: contestSoon ? contestSoon.startAt - Date.now() : null,
+  };
+  const g = gradient(o.score.overall, o.milestones.next, o.target);
+  const week = cal ? lastSeven(cal.today, cal.days) : [];
+  const dayDone = dayMood(ctx) === 'done' || dayMood(ctx) === 'manual';
 
   return (
     <>
-      <PageHead title="Today" sub={`${longDate(data.date)}. ${o.isRest ? 'Recovery day.' : `${done} of ${required.length} required actions verified.`}`} />
-      <section className="section block block-ink" aria-label="Next action">
-        <div className="frame"><NextBlock next={data.next} now={now} fetchedAt={fetchedAt} /></div>
-      </section>
-      <section className="section" aria-label="Execution">
+      <ScoreAnnouncer value={o.score.overall} />
+
+      <section className="hero block block-pink" aria-label="Your score">
         <div className="frame">
-          {o.items.length === 0 && <Empty title="No objective">No unsolved problems in the pool and no rated contest today.</Empty>}
-          <ol className="tday">
-            {o.items.map((it, i) => <TodayItem key={it.id} item={it} index={i} onChange={reload} />)}
-          </ol>
-          {o.rationale.length > 0 && (
-            <div style={{ marginTop: 'var(--space-9)' }}>
-              <p className="label">How this objective was set</p>
-              {o.rationale.map((r, i) => <p key={i} className="serif-lead" style={{ marginTop: 'var(--space-3)' }}>{r}</p>)}
+          <p className="kicker enter">{greetingWord(ctx.hour)}{o.user.displayName && o.user.displayName !== 'Owner' ? `, ${o.user.displayName}` : ''}</p>
+          <p className="lead hero__line enter" style={{ animationDelay: '0.08s' }}>{dayLine(ctx)}</p>
+          <div className="hero__grid">
+            <h1 className="hero__score enter" style={{ animationDelay: '0.16s' }}><ScoreFigure value={o.score.overall} /></h1>
+            <div className="hero__meta enter" style={{ animationDelay: '0.28s' }}>
+              <p className="statement hero__to">{g.near}</p>
+              <p className="body">{g.far}</p>
             </div>
-          )}
-          {o.targetScoreDelta > 0 && (
-            <p className="label" style={{ marginTop: 'var(--space-6)' }}>Deterministic score in this objective {signed(o.targetScoreDelta)} · rating movement not included (uncertain)</p>
-          )}
+          </div>
+          <div className="hero__bar enter" style={{ animationDelay: '0.4s' }}>
+            <GoalBar current={o.score.overall} target={o.target} milestones={o.milestones.list} />
+          </div>
         </div>
       </section>
-    </>
-  );
-}
 
-function TodayItem({ item, index, onChange }: { item: Item; index: number; onChange: () => void }) {
-  const done = item.completed;
-  const status = done ? (item.verification === 'VERIFIED' ? 'VERIFIED' : 'MANUAL') : item.completedCount > 0 ? 'IN PROGRESS' : 'OPEN';
-  const { say, region } = useAnnouncer();
-  const [busy, setBusy] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-  const auto = item.platform === 'codeforces';
+      <section className="block block-ink next-wrap" aria-label="Next action">
+        <div className="frame"><NextBlock next={o.next} items={o.today.items} delta={o.today.targetScoreDelta} now={now} fetchedAt={fetchedAt} /></div>
+      </section>
 
-  async function mark(s: { platform: Platform; externalId: string }) {
-    setBusy(s.externalId); setErr(null);
-    try {
-      const r = await post<{ isNew: boolean; overall: number; scoreDelta: number }>('/problems/solve', s);
-      say(`Recorded manually. Score ${r.overall}, ${signed(r.scoreDelta)}.`);
-      onChange();
-    } catch (e: any) { setErr(e.message); } finally { setBusy(null); }
-  }
-
-  async function sync() {
-    setBusy('sync'); setErr(null);
-    try {
-      const r = await post<{ ok: boolean; message: string }>('/sync/codeforces');
-      if (!r.ok) setErr(r.message); else onChange();
-    } catch (e: any) { setErr(e.message); } finally { setBusy(null); }
-  }
-
-  return (
-    <li className={`tday__item${done ? ' is-done' : ''}`}>
-      {region}
-      <div className="tday__no display-xl" aria-hidden="true">{String(index + 1).padStart(2, '0')}</div>
-      <div className="tday__main">
-        <div className="row" style={{ justifyContent: 'space-between' }}>
-          <h2 className="display-xl fig-xl tday__plat">{item.title}</h2>
-          <span className="tday__state"><span aria-hidden="true">{done ? '✓' : '○'}</span> <span className="state-tag">{status}</span></span>
+      <Section kicker={dayDone ? 'Today, finished' : 'Today'} id="today-list">
+        <div className="tday-head">
+          <h2 className="statement">{o.today.isRest ? 'A rest day.' : dayDone ? 'Everything required is done.' : `${required.length - done} ${required.length - done === 1 ? 'thing' : 'things'} left today.`}</h2>
+          {o.today.targetScoreDelta > 0 && !o.today.isRest && (
+            <p className="body">{dayDone
+              ? <>Today was worth <span className="strong">{signed(o.today.targetScoreDelta)}</span> points you can count on. Rating changes are not promised, so they are not in this number.</>
+              : <>These add up to <span className="strong">{signed(o.today.targetScoreDelta)}</span> points you can count on. Rating changes are not promised, so they are not in this number.</>}</p>
+          )}
         </div>
-        <p className="tday__what">
-          {item.type === 'PROBLEM_QUOTA' && <>{item.quota} selected problem{item.quota === 1 ? '' : 's'} · {item.completedCount} of {item.quota} done</>}
-          {item.type === 'CONTEST' && <>Rated contest{item.required ? ' · committed' : ' · optional until committed'}</>}
-          {item.type === 'CONTEST_PREP' && <>Preparation · {item.minutes} min · optional</>}
-          {item.type === 'REST' && 'No required work today'}
-        </p>
-        <p className="serif-lead tday__why">{item.reason}</p>
+        {o.today.items.length === 0
+          ? <Empty title="Nothing scheduled">No required work and no contest today. Add problems to the pool or sync a platform.</Empty>
+          : <ol className="qlist">{o.today.items.map((it, i) => <TodayItem key={it.id} item={it} index={i} onChange={reload} open={!it.completed && i === o.today.items.findIndex((x) => !x.completed)} />)}</ol>}
+        <p style={{ marginTop: 'var(--space-8)' }}><Link to="/practice" className="link-arrow">Want a different problem? Browse the pool</Link></p>
+      </Section>
 
-        {item.type === 'PROBLEM_QUOTA' && (
-          <div className="tday__problems">
-            {item.suggestions.length > 0 && (
-              <ul className="ledger">
-                {item.suggestions.map((s) => (
-                  <li key={s.externalId} className="ledger__row">
-                    <span className="ledger__k">{s.difficulty ?? '—'}{s.topic ? ` · ${s.topic}` : ''}</span>
-                    <a className="ledger__v" href={s.url} target="_blank" rel="noreferrer noopener">{s.title}<span className="sr-only"> (opens in a new tab)</span></a>
-                    {!auto && !done && (
-                      <button className="btn btn--ghost btn--sm" disabled={busy !== null} aria-busy={busy === s.externalId}
-                        onClick={() => mark({ platform: s.platform, externalId: s.externalId })}
-                        aria-label={`Mark ${s.title} as solved manually`}>
-                        {busy === s.externalId ? 'Recording' : 'Mark solved'}
-                      </button>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            )}
-            {item.guidance && <p className="muted" style={{ marginTop: 'var(--space-3)' }}>{item.guidance}{item.practiceUrl && <> <a href={item.practiceUrl} target="_blank" rel="noreferrer noopener">Open practice</a></>}</p>}
-            {auto && <div className="btn-row" style={{ marginTop: 'var(--space-4)' }}><button className="btn btn--sm" onClick={sync} disabled={busy !== null} aria-busy={busy === 'sync'}>{busy === 'sync' ? 'Syncing' : 'Sync Codeforces'}</button></div>}
-            {!auto && <p className="muted" style={{ marginTop: 'var(--space-3)' }}>Manual confirmation is recorded as MANUAL, not VERIFIED. Importing your platform stats verifies it.</p>}
+      <Section kicker="Your week" tone="deep">
+        <div className="week">
+          <div>
+            <p className="statement">{streakLine(ctx.streak)}</p>
+            <p className="body" style={{ marginTop: 'var(--space-4)' }}>
+              {o.consistency.executionRate === null
+                ? 'Execution rate and contest attendance appear after a week of history.'
+                : `${o.consistency.executionRate}% of planned sessions completed. Weekly objective ${o.consistency.weeklyCompletion ?? 0}%.`}
+            </p>
           </div>
-        )}
-        {item.type === 'CONTEST' && item.contestId && <div className="btn-row" style={{ marginTop: 'var(--space-4)' }}><Link to={`/contests?focus=${item.contestId}`} className="btn btn--sm">Open contest</Link></div>}
-        {err && <p className="error-text" role="alert" style={{ marginTop: 'var(--space-3)' }}>{err}</p>}
-      </div>
-    </li>
+          <ol className="wk" aria-label="Last seven days">
+            {week.map((d) => (
+              <li key={d.date} className={`wk__d wk__d--${d.state.toLowerCase()}`}>
+                <span className="wk__box" aria-hidden="true">{d.state === 'COMPLETE' ? '✓' : d.state === 'MISSED' ? '×' : ''}</span>
+                <span className="meta">{new Intl.DateTimeFormat('en-GB', { timeZone: 'UTC', weekday: 'short' }).format(new Date(`${d.date}T00:00:00Z`))}</span>
+                <span className="sr-only">{d.state.toLowerCase()}</span>
+              </li>
+            ))}
+          </ol>
+        </div>
+      </Section>
+
+      <Section kicker="Where the path stands">
+        <div className="grid-2">
+          <div>
+            <p className="statement">{STATUS_WORD[t.status] ?? t.status}.</p>
+            <p className="body" style={{ marginTop: 'var(--space-4)' }}>{statusLine(t.status, t.historyDays)}</p>
+          </div>
+          <div className="btn-row" style={{ alignSelf: 'end' }}>
+            <Link to="/path" className="btn">See the path</Link>
+            <Link to="/log" className="btn btn--ghost">{o.awards.length > 0 ? `${o.awards.length} earned` : 'Your log'}</Link>
+          </div>
+        </div>
+      </Section>
+
+      <Section kicker="What changed" tone="deep">
+        {o.changes.length === 0
+          ? <Empty title="Nothing yet">Verified events show up here as your platforms sync.</Empty>
+          : (
+            <ul className="ledger">
+              {o.changes.slice(0, 4).map((c, i) => (
+                <li key={i} className="ledger__row"><span className="ledger__k">{ago(c.at, now)}</span><span className="ledger__v">{c.text}</span><span /></li>
+              ))}
+            </ul>
+          )}
+        <p className="kicker" style={{ margin: 'var(--space-9) 0 var(--space-4)' }}>How fresh this is</p>
+        <ul className="fresh">
+          {o.sources.map((s) => <li key={s.platform}><span className="strong">{s.label}</span> <SourceChip status={s.status} updatedAt={s.updatedAt} now={now} /></li>)}
+        </ul>
+        <p className="small" style={{ marginTop: 'var(--space-4)' }}>{fmt(o.remaining)} points to go. Numbers come from your recorded data only, never an estimate.</p>
+      </Section>
+    </>
   );
 }

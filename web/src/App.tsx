@@ -1,19 +1,17 @@
 import { useEffect, useState } from 'react';
-import { Route, Routes } from 'react-router-dom';
+import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import { get, post } from './api';
 import { Shell } from './components/Shell';
 import { Loading } from './components/ui';
-import { Analytics } from './pages/Analytics';
-import { Awards } from './pages/Awards';
-import { Calendar } from './pages/Calendar';
 import { Contests } from './pages/Contests';
-import { Home } from './pages/Home';
+import { Log } from './pages/Log';
 import { Login } from './pages/Login';
+import { Path } from './pages/Path';
 import { Problems } from './pages/Problems';
-import { ScorePage } from './pages/Score';
 import { Settings } from './pages/Settings';
 import { Today } from './pages/Today';
-import { Trajectory } from './pages/Trajectory';
+
+function ToLogDay() { const { date } = useParams(); return <Navigate to={`/log/${date}`} replace />; }
 
 export function App() {
   const [auth, setAuth] = useState<'loading' | 'in' | 'out' | 'offline'>('loading');
@@ -30,10 +28,10 @@ export function App() {
     return (
       <main id="main" className="login block block-pink">
         <div className="frame stack">
-          <p className="label">VECTOR</p>
-          <h1 className="display-xl fig-2xl">OFFLINE</h1>
-          <p className="serif-lead">No connection. Scores and schedules are never shown from a cache, so nothing stale can look current.</p>
-          <div className="btn-row"><button className="btn" onClick={check}>Retry</button></div>
+          <p className="kicker">VECTOR</p>
+          <h1 className="display fig-2xl">Offline</h1>
+          <p className="lead">No connection. Scores are never shown from a cache, so nothing stale can look current.</p>
+          <div className="btn-row"><button className="btn btn--big" onClick={check}>Try again</button></div>
         </div>
       </main>
     );
@@ -43,17 +41,22 @@ export function App() {
   return (
     <Routes>
       <Route element={<Shell onLogout={() => { void post('/auth/logout').finally(() => setAuth('out')); }} />}>
-        <Route index element={<Home />} />
-        <Route path="today" element={<Today />} />
+        <Route index element={<Today />} />
+        <Route path="path" element={<Path />} />
         <Route path="contests" element={<Contests />} />
-        <Route path="problems" element={<Problems />} />
-        <Route path="trajectory" element={<Trajectory />} />
-        <Route path="calendar" element={<Calendar />} />
-        <Route path="calendar/:date" element={<Calendar />} />
-        <Route path="score" element={<ScorePage />} />
-        <Route path="awards" element={<Awards />} />
-        <Route path="analytics" element={<Analytics />} />
+        <Route path="log" element={<Log />} />
+        <Route path="log/:date" element={<Log />} />
+        <Route path="practice" element={<Problems />} />
         <Route path="settings" element={<Settings />} />
+        {/* Old links (saved notifications, bookmarks) keep working. */}
+        <Route path="today" element={<Navigate to="/" replace />} />
+        <Route path="calendar" element={<Navigate to="/log" replace />} />
+        <Route path="calendar/:date" element={<ToLogDay />} />
+        <Route path="awards" element={<Navigate to="/log" replace />} />
+        <Route path="trajectory" element={<Navigate to="/path" replace />} />
+        <Route path="score" element={<Navigate to="/path" replace />} />
+        <Route path="analytics" element={<Navigate to="/path" replace />} />
+        <Route path="problems" element={<Navigate to="/practice" replace />} />
         <Route path="*" element={<NotFound />} />
       </Route>
     </Routes>
@@ -61,5 +64,5 @@ export function App() {
 }
 
 function NotFound() {
-  return <div className="frame" style={{ padding: 'var(--space-11) var(--gutter)' }}><h1 className="h-page">No such page</h1></div>;
+  return <div className="frame" style={{ padding: 'var(--space-11) var(--gutter)' }}><h1 className="display fig-2xl">Not here</h1><p className="lead" style={{ marginTop: 'var(--space-5)' }}>That page does not exist. Go back to today.</p></div>;
 }

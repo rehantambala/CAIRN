@@ -3,9 +3,11 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { del, post, type ContestRow } from '../api';
 import { countdown, tzDay, tzTime } from '../format';
 import { useFetch, useNow } from '../hooks';
-import { ErrorBanner, Loading, PageHead, Empty, useAnnouncer } from '../components/ui';
+import { ErrorBanner, Loading, PageHead, Empty, Section, useAnnouncer } from '../components/ui';
 
 interface Payload { timezone: string; now: string; contests: ContestRow[] }
+
+const STATE_WORD: Record<ContestRow['state'], string> = { UPCOMING: 'Upcoming', STARTING_SOON: 'Starting soon', LIVE: 'Live now', FINISHED: 'Finished', MISSED: 'Missed', ATTENDED: 'Attended' };
 
 export function Contests() {
   const { data, error, loading, reload } = useFetch<Payload>('/contests');
@@ -14,50 +16,36 @@ export function Contests() {
   if (loading) return <Loading />;
   if (error || !data) return <ErrorBanner error={error ?? new Error('NO_DATA')} retry={reload} />;
   const tz = data.timezone;
-  const fetchedAt = new Date(data.now).getTime();
-  const nowAdj = now; void fetchedAt;
-  const upcoming = data.contests.filter((c) => new Date(c.endAt).getTime() > nowAdj).sort((a, b) => +new Date(a.startAt) - +new Date(b.startAt));
-  const past = data.contests.filter((c) => new Date(c.endAt).getTime() <= nowAdj).sort((a, b) => +new Date(b.startAt) - +new Date(a.startAt));
+  const upcoming = data.contests.filter((c) => new Date(c.endAt).getTime() > now).sort((a, b) => +new Date(a.startAt) - +new Date(b.startAt));
+  const past = data.contests.filter((c) => new Date(c.endAt).getTime() <= now).sort((a, b) => +new Date(b.startAt) - +new Date(a.startAt));
   const focus = params.get('focus');
   const lead = upcoming.find((c) => c.id === focus) ?? upcoming.find((c) => c.rated) ?? upcoming[0];
   const rest = upcoming.filter((c) => c.id !== lead?.id);
 
   return (
     <>
-      <PageHead title="Contests" sub={`Times in ${tz}. Reminders follow your commitment.`} />
+      <PageHead title="Contests" sub={`Every rated contest is a chance to move a rating. Times are in ${tz}.`} />
       {upcoming.length === 0 && (
-        <section className="section"><div className="frame">
-          <Empty title="No upcoming contests">
-            Codeforces contests are discovered from the official API. Other platforms need an aggregator key (CLIST_USERNAME, CLIST_API_KEY) or a contests.json file. Run the contests job after configuring.
+        <Section>
+          <Empty title="Nothing upcoming yet">
+            Codeforces contests are found automatically. For other platforms, add a clist.by key (CLIST_USERNAME, CLIST_API_KEY) and the list fills itself.
           </Empty>
-        </div></section>
+        </Section>
       )}
-      {lead && (
-        <section className="section block block-ink" aria-label="Next contest">
-          <div className="frame"><Lead c={lead} tz={tz} now={nowAdj} onChange={reload} /></div>
-        </section>
-      )}
+      {lead && <section className="block block-ink section" aria-label="Next contest"><div className="frame"><Lead c={lead} tz={tz} now={now} onChange={reload} /></div></section>}
       {rest.length > 0 && (
-        <section className="section" aria-label="Upcoming timeline">
-          <div className="frame">
-            <p className="eyebrow"><span className="eyebrow__no">UP</span><span className="eyebrow__q">Upcoming</span></p>
-            <ol className="tl">{rest.map((c) => <Row key={c.id} c={c} tz={tz} now={nowAdj} onChange={reload} />)}</ol>
-          </div>
-        </section>
+        <Section kicker="After that">
+          <ol className="tl">{rest.map((c) => <Row key={c.id} c={c} tz={tz} now={now} onChange={reload} />)}</ol>
+        </Section>
       )}
       {past.length > 0 && (
-        <section className="section block block-deep" aria-label="Recent contests">
-          <div className="frame">
-            <p className="eyebrow"><span className="eyebrow__no">PAST</span><span className="eyebrow__q">Recent</span></p>
-            <ol className="tl">{past.map((c) => <Row key={c.id} c={c} tz={tz} now={nowAdj} onChange={reload} />)}</ol>
-          </div>
-        </section>
+        <Section kicker="Behind you" tone="deep">
+          <ol className="tl">{past.map((c) => <Row key={c.id} c={c} tz={tz} now={now} onChange={reload} />)}</ol>
+        </Section>
       )}
     </>
   );
 }
-
-function stateLabel(c: ContestRow) { return c.state.replace('_', ' '); }
 
 function Actions({ c, now, onChange }: { c: ContestRow; now: number; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
@@ -76,30 +64,33 @@ function Actions({ c, now, onChange }: { c: ContestRow; now: number; onChange: (
     <div>
       {region}
       <div className="btn-row">
-        {c.registrationUrl && !over && <a className="btn" href={c.registrationUrl} target="_blank" rel="noreferrer noopener">Register<span className="sr-only"> (opens in a new tab)</span></a>}
+        {!over && !c.committed && <button className="btn" disabled={busy} aria-busy={busy} onClick={() => run(() => post(`/contests/${c.id}/commit`, { prepMinutes: 30 }), 'You are in. Reminders are set.')}>I am doing this one</button>}
+        {!over && c.committed && <button className="btn btn--ghost" disabled={busy} onClick={() => run(() => del(`/contests/${c.id}/commit`), 'Commitment removed.')}>✓ You are in · undo</button>}
+        {c.registrationUrl && !over && <a className="btn btn--ghost" href={c.registrationUrl} target="_blank" rel="noreferrer noopener">Register<span className="sr-only"> (opens in a new tab)</span></a>}
         {c.contestUrl && !over && <a className="btn btn--ghost" href={c.contestUrl} target="_blank" rel="noreferrer noopener">Open contest<span className="sr-only"> (opens in a new tab)</span></a>}
-        {!over && !c.committed && <button className="btn btn--ghost" disabled={busy} aria-busy={busy} onClick={() => run(() => post(`/contests/${c.id}/commit`, { prepMinutes: 30 }), 'Your rated attempt is scheduled.')}>Commit</button>}
-        {!over && c.committed && <button className="btn btn--ghost" disabled={busy} onClick={() => run(() => del(`/contests/${c.id}/commit`), 'Commitment removed.')}>Committed · remove</button>}
-        {!over && <Link className="btn btn--ghost" to="/problems">Prepare</Link>}
-        {started && c.manualOk && !c.attended && <button className="btn btn--ghost" disabled={busy} onClick={() => run(() => post(`/contests/${c.id}/attended`), 'Participation recorded as MANUAL.')}>Mark attended</button>}
+        {!over && <Link className="link-arrow" to="/">Warm up first</Link>}
+        {started && c.manualOk && !c.attended && <button className="btn btn--ghost" disabled={busy} onClick={() => run(() => post(`/contests/${c.id}/attended`), 'Recorded as attended (unverified).')}>I took part</button>}
       </div>
-      {msg && <p className="label" style={{ marginTop: 'var(--space-3)' }}>{msg}</p>}
+      {msg && <p className="meta" style={{ marginTop: 'var(--space-3)' }}>{msg}</p>}
       {err && <p className="error-text" role="alert" style={{ marginTop: 'var(--space-3)' }}>{err}</p>}
     </div>
   );
 }
 
 function Lead({ c, tz, now, onChange }: { c: ContestRow; tz: string; now: number; onChange: () => void }) {
-  const start = new Date(c.startAt).getTime();
-  const left = start - now;
+  const left = new Date(c.startAt).getTime() - now;
   return (
-    <div className="lead">
-      <p className="label">{c.state === 'LIVE' ? 'LIVE NOW' : 'Next contest'} · {stateLabel(c)}</p>
-      <h2 className="display-xl lead__title">{c.label} {c.title}</h2>
-      <p className="lead__when">{tzDay(c.startAt, tz)} · {tzTime(c.startAt, tz)}–{tzTime(c.endAt, tz)}</p>
-      {left > 0 && <p className="display-xl fig-2xl mark lead__count" aria-label={`Starts in ${countdown(left)}`}>{countdown(left)}</p>}
-      {c.committed && <p className="serif-lead">Your rated attempt is scheduled. Preparation begins {c.prepMinutes} minutes before the start.</p>}
-      <div style={{ marginTop: 'var(--space-6)' }}><Actions c={c} now={now} onChange={onChange} /></div>
+    <div className="lead-c">
+      <p className="kicker">{c.state === 'LIVE' ? 'Live now' : 'Next contest'}{c.rated ? ' · rated' : ''}</p>
+      <h2 className="statement statement--wide" style={{ marginTop: 'var(--space-5)' }}>{c.label}: {c.title}</h2>
+      <p className="body" style={{ marginTop: 'var(--space-3)' }}>{tzDay(c.startAt, tz)} · {tzTime(c.startAt, tz)}–{tzTime(c.endAt, tz)}</p>
+      {left > 0 && <p className="display fig-hero mark lead-c__count" aria-label={`Starts in ${countdown(left)}`}>{countdown(left)}</p>}
+      <p className="lead" style={{ marginTop: 'var(--space-5)' }}>
+        {c.committed
+          ? `You are in. Preparation starts ${c.prepMinutes} minutes before, and reminders will find you.`
+          : 'Deciding now is half the work. Commit, and VECTOR reminds you 24 hours, 1 hour and 10 minutes before.'}
+      </p>
+      <div style={{ marginTop: 'var(--space-8)' }}><Actions c={c} now={now} onChange={onChange} /></div>
     </div>
   );
 }
@@ -109,13 +100,13 @@ function Row({ c, tz, now, onChange }: { c: ContestRow; tz: string; now: number;
   return (
     <li className="tl__row">
       <div className="tl__when">
-        <span className="display-xl fig-lg">{tzTime(c.startAt, tz)}</span>
-        <span className="label">{tzDay(c.startAt, tz)}</span>
+        <span className="display fig-xl">{tzTime(c.startAt, tz)}</span>
+        <span className="meta">{tzDay(c.startAt, tz)}</span>
       </div>
       <div className="tl__what">
-        <h3 className="h-sub">{c.label} {c.title}</h3>
-        <p className="muted">
-          {c.rated ? 'Rated' : 'Unrated'} · <span className="state-tag">{stateLabel(c)}</span>
+        <h3 className="h-sub">{c.label}: {c.title}</h3>
+        <p className="small" style={{ marginTop: 'var(--space-2)' }}>
+          {c.rated ? 'Rated' : 'Unrated'} · {STATE_WORD[c.state]}
           {left > 0 && <> · in {countdown(left)}</>}
           {c.ratingDelta !== null && <> · rating {c.ratingDelta >= 0 ? '+' : '−'}{Math.abs(c.ratingDelta)}</>}
         </p>
