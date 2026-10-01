@@ -31,6 +31,9 @@ export const config = {
   googleClientSecret: env('GOOGLE_CLIENT_SECRET'),
   googleRedirectUri: env('GOOGLE_REDIRECT_URI'),
 
+  /** Public contact address shown on the privacy and terms pages. Optional. */
+  supportEmail: env('SUPPORT_EMAIL'),
+
   vapidPublic: env('VAPID_PUBLIC_KEY'),
   vapidPrivate: env('VAPID_PRIVATE_KEY'),
   vapidSubject: env('VAPID_SUBJECT', 'mailto:admin@cairn.local'),

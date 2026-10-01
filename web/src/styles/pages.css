@@ -269,3 +269,16 @@
 .toggle input:focus-visible { outline: 2px solid var(--color-ink); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) { .toggle input, .toggle input::after { transition: none; } }
 .counsel { margin: 0; padding-left: 1.1em; display: grid; gap: var(--space-2); }
+
+/* ——— Privacy and terms ——— */
+.legal { min-height: 100vh; min-height: 100dvh; padding: var(--space-10) 0; }
+.legal__frame { max-width: 860px; display: grid; gap: var(--space-5); }
+.legal__brand { margin-bottom: var(--space-4); }
+.legal__body { display: grid; gap: var(--space-4); margin-top: var(--space-5); font-size: var(--fs-ui); line-height: 1.6; color: var(--color-deep); }
+.legal__body h2 { margin: var(--space-6) 0 0; font-family: var(--font-display); font-weight: 400; font-size: clamp(26px, 3vw, 34px); letter-spacing: 0.04em; text-transform: uppercase; color: var(--display); }
+.legal__body p, .legal__body ul { margin: 0; max-width: 68ch; }
+.legal__body ul { padding-left: 1.2em; display: grid; gap: var(--space-2); }
+.legal__body .lead { max-width: 40ch; }
+.legal__nav { margin-top: var(--space-8); font-size: var(--fs-meta); }
+.login__legal { margin: 0; text-align: center; font-size: var(--fs-meta); }
+.login__legal a, .footer__link { color: inherit; text-underline-offset: 3px; }

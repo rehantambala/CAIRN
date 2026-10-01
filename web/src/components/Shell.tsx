@@ -32,7 +32,7 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
 
       <footer className="footer">
         <div className="frame footer__row">
-          <span>{BRAND} · Every figure is read from your platforms or entered by you.</span>
+          <span>{BRAND} · Every figure is read from your platforms or entered by you. <Link to="/privacy" className="footer__link">Privacy</Link> · <Link to="/terms" className="footer__link">Terms</Link></span>
           <button className="nav__out" onClick={onLogout}>Sign out</button>
         </div>
       </footer>

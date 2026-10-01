@@ -98,6 +98,7 @@ export function Login({ onDone }: { onDone: () => void }) {
               <div className="btn-row"><button className="btn btn--big" disabled={busy} aria-busy={busy}>{busy ? 'Signing in…' : 'Sign in'}</button></div>
             </form>
           )}
+          <p className="login__legal"><a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></p>
         </div>
       </div>
     </main>

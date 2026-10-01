@@ -1,6 +1,7 @@
 import { join } from 'node:path';
 import cors from 'cors';
 import express from 'express';
+import { config } from './config.js';
 import { pool } from './db/pool.js';
 import { api } from './routes/api.js';
 import { authRouter } from './routes/auth.js';
@@ -23,6 +24,10 @@ export function createApp(staticDir?: string) {
 
   app.get('/api/health', async (_req, res) => {
     try { await pool.query('select 1'); res.json({ ok: true }); } catch { res.status(503).json({ ok: false }); }
+  });
+  // Public, no account needed: the contact address for the privacy and terms pages.
+  app.get('/api/public/info', (_req, res) => {
+    res.json({ contact: /^[^\s@<>"']+@[^\s@<>"']+\.[a-z]{2,}$/i.test(config.supportEmail) ? config.supportEmail : null });
   });
   app.use('/api/auth', oauthRouter);
   app.use('/api/auth', authRouter);

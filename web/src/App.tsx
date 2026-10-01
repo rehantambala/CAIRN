@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react';
-import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import { Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { get, post } from './api';
 import { BRAND } from './brand';
 import { Shell } from './components/Shell';
 import { Loading } from './components/ui';
 import { Contests } from './pages/Contests';
 import { Log } from './pages/Log';
+import { Privacy, Terms } from './pages/Legal';
 import { Login } from './pages/Login';
 import { Path } from './pages/Path';
 import { Problems } from './pages/Problems';
@@ -23,7 +24,11 @@ export function App() {
       .catch((e) => setAuth(e instanceof TypeError ? 'offline' : 'out')); // TypeError = network failure
   };
   useEffect(check, []);
+  const { pathname } = useLocation();
 
+  // Public pages: readable by anyone, signed in or not (Google links to them from its consent screen).
+  if (pathname === '/privacy') return <Privacy />;
+  if (pathname === '/terms') return <Terms />;
   if (auth === 'loading') return <Loading />;
   if (auth === 'offline') {
     return (

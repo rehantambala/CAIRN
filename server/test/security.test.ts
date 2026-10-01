@@ -258,6 +258,18 @@ describe('CSRF, CORS and security headers', () => {
     expect(prod['Content-Security-Policy']).toContain('upgrade-insecure-requests');
   });
 
+  it('the privacy contact is public, optional, and only ever a plain email address', async () => {
+    const prev = config.supportEmail;
+    try {
+      config.supportEmail = '';
+      expect((await client().get('/api/public/info')).json).toEqual({ contact: null });
+      config.supportEmail = 'help@cairn.example';
+      expect((await client().get('/api/public/info')).json).toEqual({ contact: 'help@cairn.example' });
+      config.supportEmail = 'x@y.co"><script>alert(1)</script>';
+      expect((await client().get('/api/public/info')).json).toEqual({ contact: null });
+    } finally { config.supportEmail = prev; }
+  });
+
   it('redirects plain HTTP to HTTPS in production and refuses writes over it', async () => {
     const prod = config.isProd;
     try {
@@ -712,7 +724,7 @@ describe('input validation, injection and XSS', () => {
       const s = readFileSync(f, 'utf8');
       expect(s, f).not.toMatch(/dangerouslySetInnerHTML|\.innerHTML\s*=|outerHTML|insertAdjacentHTML|document\.write|\beval\(|new Function\(/);
       for (const m of s.matchAll(/href=\{([^}]*)\}/g)) {
-        expect(m[1].startsWith('safeHref(') || m[1].startsWith('`/'), `${f}: href={${m[1]}}`).toBe(true);
+        expect(m[1].startsWith('safeHref(') || m[1].startsWith('`/') || m[1].startsWith('`mailto:'), `${f}: href={${m[1]}}`).toBe(true);
       }
       expect(s, f).not.toMatch(/localStorage|sessionStorage/);                 // no tokens in web storage
     }
