@@ -80,3 +80,21 @@ describe('contest plan', () => {
 describe('suggestion guidance', () => {
   it('is defined for any count', () => { expect(typeof suggestionGuidance(0, 2, 1200)).toBe('string'); });
 });
+
+import { parseCodeChefContests, parseLeetCodeContests } from '../src/adapters/contestfeeds.js';
+describe('contest feeds', () => {
+  it('reads LeetCode contests', () => {
+    const c = parseLeetCodeContests({ data: { topTwoContests: [{ title: 'Weekly Contest 500', titleSlug: 'weekly-contest-500', startTime: 1_790_000_000, duration: 5400 }] } });
+    expect(c[0]).toMatchObject({ platform: 'leetcode', externalContestId: 'weekly-contest-500', rated: true });
+    expect(c[0].endAt.getTime() - c[0].startAt.getTime()).toBe(5_400_000);
+    expect(c[0].contestUrl).toBe('https://leetcode.com/contest/weekly-contest-500/');
+  });
+  it('reads CodeChef contests and marks practice-style entries unrated', () => {
+    const c = parseCodeChefContests({ future_contests: [
+      { contest_code: 'START200', contest_name: 'Starters 200 (Rated)', contest_start_date_iso: '2026-10-07T20:00:00+05:30', contest_end_date_iso: '2026-10-07T22:00:00+05:30' },
+      { contest_code: 'WARM', contest_name: 'Open Mock', contest_start_date_iso: 'bad', contest_end_date_iso: 'bad' },
+    ], present_contests: [] });
+    expect(c).toHaveLength(1);
+    expect(c[0]).toMatchObject({ platform: 'codechef', externalContestId: 'START200', rated: true, contestUrl: 'https://www.codechef.com/START200' });
+  });
+});

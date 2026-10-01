@@ -4,6 +4,7 @@ import { pool, tx } from '../db/pool.js';
 import type { Db } from '../db/pool.js';
 import { ADAPTERS } from '../adapters/index.js';
 import { clistConfigured, fetchClistContests } from '../adapters/clist.js';
+import { fetchCodeChefContests, fetchLeetCodeContests } from '../adapters/contestfeeds.js';
 import type { NormalizedContest, NormalizedSubmission, PlatformAdapter, Totals } from '../adapters/types.js';
 import { ingestAccepted, refreshAfterChange } from './pipeline.js';
 import { recordParticipation, recordRating, upsertContest } from './contests.js';
@@ -106,7 +107,7 @@ export async function syncPlatform(userId: string, platform: Platform, now = Dat
   return rep;
 }
 
-/** Contest discovery. Codeforces via the official API, others via clist (if keyed) and the local contests.json. */
+/** Contest discovery. Codeforces, LeetCode and CodeChef from their own public listings, others via clist (if keyed) and the local contests.json. */
 export async function discoverContests(userId: string | null, now = Date.now()): Promise<{ found: number; sources: string[]; errors: string[] }> {
   const all: NormalizedContest[] = [];
   const sources: string[] = [];
@@ -116,6 +117,10 @@ export async function discoverContests(userId: string | null, now = Date.now()):
     all.push(...cs.filter((c) => c.endAt.getTime() > now - 86_400_000));
     sources.push('codeforces');
   } catch (e: any) { errors.push(`codeforces: ${e?.message ?? e}`); }
+  for (const [name, fn] of [['leetcode', fetchLeetCodeContests], ['codechef', fetchCodeChefContests]] as const) {
+    try { all.push(...(await fn()).filter((c) => c.endAt.getTime() > now - 86_400_000)); sources.push(name); }
+    catch (e: any) { errors.push(`${name}: ${e?.message ?? e}`); }
+  }
   if (clistConfigured()) {
     try { all.push(...(await fetchClistContests(now))); sources.push('clist'); }
     catch (e: any) { errors.push(`clist: ${e?.message ?? e}`); }

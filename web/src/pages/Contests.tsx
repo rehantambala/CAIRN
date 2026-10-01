@@ -28,7 +28,7 @@ export function Contests() {
       {upcoming.length === 0 && (
         <Section>
           <Empty title="No upcoming contests">
-            Codeforces contests are retrieved automatically. For other platforms, add a clist.by key (CLIST_USERNAME and CLIST_API_KEY) and the list will populate.
+            Contests are read from Codeforces, LeetCode and CodeChef every few hours. If this list is empty, the sources could not be reached; it will be retried automatically.
           </Empty>
         </Section>
       )}
