@@ -131,7 +131,7 @@ export async function contestsView(db: Db, userId: string, now: number) {
        from contests c
        left join contest_commitments cm on cm.contest_id = c.id and cm.user_id = $1
        left join contest_participations cp on cp.contest_id = c.id and cp.user_id = $1
-      where c.end_at > $2 or (c.end_at > $3 and (cm.id is not null or cp.id is not null))
+      where c.cancelled_at is null and (c.end_at > $2 or (c.end_at > $3 and (cm.id is not null or cp.id is not null)))
       order by c.start_at`, [userId, new Date(now), new Date(now - 30 * 86_400_000)],
   )).rows;
   const linked = new Set((await db.query(`select platform from platform_accounts where user_id=$1 and username <> ''`, [userId])).rows.map((r) => r.platform as string));

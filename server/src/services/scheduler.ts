@@ -1,4 +1,4 @@
-import { runJob, type JobName } from './jobs.js';
+import { runJobExclusive, type JobName } from './jobs.js';
 
 /**
  * The server's own clock for background work, so reminders and contest discovery never depend on a browser.
@@ -19,7 +19,7 @@ export function startScheduler(log: (msg: string) => void = console.log): () => 
     const run = async () => {
       if (busy.has(name)) return;
       busy.add(name);
-      try { await runJob(name); } catch (e) { log(`job ${name} failed: ${(e as Error).message}`); } finally { busy.delete(name); }
+      try { await runJobExclusive(name); } catch (e) { log(`job ${name} failed: ${(e as Error).message}`); } finally { busy.delete(name); }
     };
     // Staggered first runs so a cold start does not do everything at once.
     setTimeout(() => void run(), 5_000 + i * 7_000).unref();

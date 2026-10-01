@@ -1,5 +1,5 @@
 {
-  "name": "vector",
+  "name": "cairn",
   "private": true,
   "workspaces": [
     "server",
@@ -16,5 +16,8 @@
   },
   "devDependencies": {
     "concurrently": "^9.0.0"
+  },
+  "engines": {
+    "node": ">=22.12"
   }
 }

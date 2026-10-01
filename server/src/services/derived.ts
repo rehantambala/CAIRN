@@ -57,7 +57,7 @@ export async function loadContestCandidates(db: Db, userId: string, now: number)
     `select c.*, (cc.id is not null) as committed
        from contests c
        left join contest_commitments cc on cc.contest_id = c.id and cc.user_id = $1
-      where c.end_at > $2 order by c.start_at`,
+      where c.end_at > $2 and c.cancelled_at is null order by c.start_at`,
     [userId, new Date(now)],
   );
   return rows.map((r) => ({
@@ -337,7 +337,7 @@ export async function applyCommitmentToToday(db: Db, userId: string, contestId: 
   const obj = (await loadObjectives(db, userId, date, date))[0];
   if (!obj || obj.isRest) return;
   const c = (await db.query('select * from contests where id=$1', [contestId])).rows[0];
-  if (!c || !c.rated) return;
+  if (!c || !c.rated || c.cancelled_at) return;
   const start = (c.start_at as Date).getTime();
   const s = dayStart(date, user.timezone), e = dayEnd(date, user.timezone);
   if (start < s || start >= e) return;

@@ -1,25 +1,42 @@
 # Free scheduler. GitHub cron is best-effort (runs can be minutes late); every job tolerates delay.
-name: vector-jobs
+# Repository secrets: CAIRN_API_URL (e.g. https://your-service.onrender.com) and CRON_SECRET.
+name: cairn-jobs
 on:
   schedule:
     - cron: '*/10 * * * *'
   workflow_dispatch:
+permissions: {}            # this workflow needs no access to the repository
+concurrency:
+  group: cairn-jobs
+  cancel-in-progress: false
 jobs:
   run:
     runs-on: ubuntu-latest
     timeout-minutes: 8
+    env:
+      API_URL: ${{ secrets.CAIRN_API_URL }}
+      CRON_SECRET: ${{ secrets.CRON_SECRET }}
     steps:
+      - name: Check configuration
+        id: cfg
+        run: |
+          if [ -z "$API_URL" ] || [ -z "$CRON_SECRET" ]; then
+            echo "CAIRN_API_URL or CRON_SECRET is not set; nothing to do."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
       - name: Wake the free server (cold start can take a minute or two)
+        if: steps.cfg.outputs.skip != 'true'
         run: |
           for i in 1 2 3 4 5 6; do
-            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "${{ secrets.VECTOR_API_URL }}/api/health" || true)
+            code=$(curl -s -o /dev/null -w "%{http_code}" --max-time 60 "$API_URL/api/health" || true)
             echo "attempt $i: HTTP $code"
             [ "$code" = "200" ] && exit 0
             sleep 10
           done
           exit 1
       - name: Run all jobs
+        if: steps.cfg.outputs.skip != 'true'
         run: |
-          curl --fail --silent --show-error --max-time 240 -X POST \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
-            "${{ secrets.VECTOR_API_URL }}/api/jobs/all"
+          curl --fail --silent --show-error --max-time 240 -o /dev/null -w "HTTP %{http_code}\n" -X POST \
+            -H "Authorization: Bearer $CRON_SECRET" \
+            "$API_URL/api/jobs/all"

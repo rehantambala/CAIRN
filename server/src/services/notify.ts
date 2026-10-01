@@ -1,7 +1,8 @@
 import webpush from 'web-push';
 import { config } from '../config.js';
 import type { Db } from '../db/pool.js';
-import { buildMessage, isStillRelevant, planContestReminders, type ContestLite, type NotificationType, type ReminderPrefs } from '../domain/notifications.js';
+import { buildMessage, expectedAt, isStillRelevant, planContestReminders, type ContestLite, type NotificationType, type ReminderPrefs } from '../domain/notifications.js';
+import { isAllowedPushEndpoint } from '../domain/pushEndpoint.js';
 import { getUser, recordEvent } from './state.js';
 
 let vapidReady = false;
@@ -14,10 +15,10 @@ function initPush(): boolean {
 }
 export const pushConfigured = () => !!(config.vapidPublic && config.vapidPrivate);
 
-async function contestLite(db: Db, id: string): Promise<ContestLite | null> {
+async function contestLite(db: Db, id: string): Promise<(ContestLite & { cancelled: boolean }) | null> {
   const r = (await db.query('select * from contests where id=$1', [id])).rows[0];
   if (!r) return null;
-  return { id: r.id, platform: r.platform, title: r.title, startAt: r.start_at.getTime(), endAt: r.end_at.getTime() };
+  return { id: r.id, platform: r.platform, title: r.title, startAt: r.start_at.getTime(), endAt: r.end_at.getTime(), cancelled: !!r.cancelled_at };
 }
 
 /** Delivery is replaceable (tests, other channels); the default is Web Push. */
@@ -39,19 +40,21 @@ export async function scheduleAll(db: Db, userId: string, now: number): Promise<
   const rows = (await db.query(
     `select c.*, (cm.id is not null) as committed from contests c
        left join contest_commitments cm on cm.contest_id = c.id and cm.user_id = $1
-      where c.rated and c.end_at > $2 and c.start_at < $3`,
+      where c.rated and c.cancelled_at is null and c.end_at > $2 and c.start_at < $3`,
     [userId, new Date(now), new Date(now + 14 * 86_400_000)],
   )).rows;
   let inserted = 0;
   for (const r of rows) {
     const c: ContestLite = { id: r.id, platform: r.platform, title: r.title, startAt: r.start_at.getTime(), endAt: r.end_at.getTime() };
     for (const p of planContestReminders(c, r.committed, now, prefs, mine.has(c.platform))) {
-      // A reminder withdrawn by a preference change comes back if the preference is restored; nothing sent is resent.
+      // A reminder withdrawn by a preference change comes back if the preference is restored, and a pending one
+      // follows its contest if the platform moves it. Nothing already sent is ever resent.
       const res = await db.query(
         `insert into notifications(user_id, type, dedupe_key, scheduled_for, payload_json)
          values ($1,$2,$3,$4,$5) on conflict (user_id, type, dedupe_key) do update
            set status='PENDING', scheduled_for=excluded.scheduled_for, payload_json=excluded.payload_json
-           where notifications.status='SKIPPED' and notifications.payload_json->>'reason'='PREFERENCE'
+           where (notifications.status='SKIPPED' and notifications.payload_json->>'reason' in ('PREFERENCE', 'CANCELLED'))
+              or (notifications.status='PENDING' and notifications.scheduled_for <> excluded.scheduled_for)
          returning id`,
         [userId, p.type, p.key, new Date(p.scheduledFor), JSON.stringify({ contestId: c.id })],
       );
@@ -94,6 +97,7 @@ export async function scheduleMissed(db: Db, userId: string, now: number): Promi
 }
 
 export interface DeliverResult { due: number; delivered: number; skipped: number; failed: number }
+const MAX_ATTEMPTS = 3;
 
 /**
  * Delivers everything due for one user. Rows are claimed with FOR UPDATE SKIP LOCKED inside the caller's
@@ -110,18 +114,38 @@ export async function deliverDue(db: Db, userId: string, now: number, send: Send
   const out: DeliverResult = { due: due.length, delivered: 0, skipped: 0, failed: 0 };
   const canPush = send !== webPushSender || pushConfigured();
 
+  const prefs = (await db.query('select remind_enabled, remind_24h, remind_1h, remind_10m from users where id=$1', [userId])).rows[0];
+  const wanted: Record<string, boolean> = prefs ? {
+    CONTEST_24H: prefs.remind_enabled && prefs.remind_24h, CONTEST_1H: prefs.remind_enabled && prefs.remind_1h, CONTEST_10M: prefs.remind_enabled && prefs.remind_10m,
+  } : {};
+  // Only the browsers' own push services are ever contacted; anything else stored before validation existed is removed.
+  const targets = [];
+  for (const s of subs) {
+    if (isAllowedPushEndpoint(s.endpoint)) targets.push(s);
+    else await db.query('delete from push_subscriptions where id=$1', [s.id]);
+  }
+  const skip = async (id: string, reason: string) => {
+    await db.query(`update notifications set status='SKIPPED', payload_json = payload_json || $2::jsonb where id=$1`, [id, JSON.stringify({ reason })]);
+    out.skipped++;
+  };
+
   for (const n of due) {
     const contest = n.payload_json?.contestId ? await contestLite(db, n.payload_json.contestId) : null;
-    if (!isStillRelevant(n.type as NotificationType, contest, now)) {
-      await db.query(`update notifications set status='SKIPPED', payload_json = payload_json || '{"reason":"EXPIRED"}' where id=$1`, [n.id]);
-      out.skipped++;
+    if (contest?.cancelled) { await skip(n.id, 'CANCELLED'); continue; }
+    if (n.type in wanted && !wanted[n.type]) { await skip(n.id, 'PREFERENCE'); continue; }
+    if (!isStillRelevant(n.type as NotificationType, contest, now)) { await skip(n.id, 'EXPIRED'); continue; }
+    // The contest was moved later since this was planned: follow it rather than send early.
+    const due2 = contest ? expectedAt(n.type as NotificationType, contest) : null;
+    if (due2 !== null && due2 > now + 60_000) {
+      await db.query('update notifications set scheduled_for=$2 where id=$1', [n.id, new Date(due2)]);
+      out.due--;
       continue;
     }
     const msg = buildMessage(n.type as NotificationType, contest, now, user.timezone);
     const payload = JSON.stringify(msg);
     let sent = 0;
     if (canPush) {
-      for (const s of subs) {
+      for (const s of targets) {
         try {
           await send({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, payload);
           sent++;
@@ -139,10 +163,18 @@ export async function deliverDue(db: Db, userId: string, now: number, send: Send
       out.delivered++;
     } else {
       // Nothing was actually pushed. Record the message for the in-app feed and say so honestly.
-      const reason = !canPush ? 'PUSH_NOT_CONFIGURED' : subs.length === 0 ? 'NO_SUBSCRIPTION' : 'SEND_FAILED';
+      const reason = !canPush ? 'PUSH_NOT_CONFIGURED' : targets.length === 0 ? 'NO_SUBSCRIPTION' : 'SEND_FAILED';
+      const attempts = Number(n.payload_json?.attempts ?? 0) + 1;
+      if (reason === 'SEND_FAILED' && attempts < MAX_ATTEMPTS) {
+        // A push service hiccup: tried again on the next run (a minute later) while the moment is still relevant.
+        await db.query(`update notifications set scheduled_for = $2, payload_json = payload_json || $3::jsonb where id=$1`,
+          [n.id, new Date(now + 60_000), JSON.stringify({ attempts })]);
+        out.failed++;
+        continue;
+      }
       await db.query(
         `update notifications set status = $2, payload_json = payload_json || $3::jsonb where id=$1`,
-        [n.id, reason === 'SEND_FAILED' ? 'FAILED' : 'SKIPPED', JSON.stringify({ reason, message: msg })],
+        [n.id, reason === 'SEND_FAILED' ? 'FAILED' : 'SKIPPED', JSON.stringify({ reason, message: msg, attempts })],
       );
       reason === 'SEND_FAILED' ? out.failed++ : out.skipped++;
     }

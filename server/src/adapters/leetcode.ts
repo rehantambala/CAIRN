@@ -10,7 +10,7 @@ const ENDPOINT = 'https://leetcode.com/graphql';
  * is sent or stored. If the response shape changes, validation fails and the stored figures are kept.
  */
 const QUERY = `
-query vectorProfile($username: String!) {
+query cairnProfile($username: String!) {
   matchedUser(username: $username) {
     username
     submitStatsGlobal { acSubmissionNum { difficulty count } }

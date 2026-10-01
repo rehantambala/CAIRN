@@ -1,3 +1,4 @@
+import { safeHref } from '../api';
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { del, post, type ContestRow, type SourceHealth } from '../api';
@@ -67,8 +68,8 @@ function Actions({ c, now, onChange }: { c: ContestRow; now: number; onChange: (
       <div className="btn-row">
         {!over && !c.committed && <button className="btn" disabled={busy} aria-busy={busy} onClick={() => run(() => post(`/contests/${c.id}/commit`, { prepMinutes: 30 }), 'Commitment recorded. Reminders are scheduled.')}>Commit to this contest</button>}
         {!over && c.committed && <button className="btn btn--ghost" disabled={busy} onClick={() => run(() => del(`/contests/${c.id}/commit`), 'Commitment withdrawn.')}>Committed · withdraw</button>}
-        {c.registrationUrl && !over && <a className="btn btn--ghost" href={c.registrationUrl} target="_blank" rel="noreferrer noopener">Register<span className="sr-only"> (opens in a new tab)</span></a>}
-        {c.contestUrl && !over && <a className="btn btn--ghost" href={c.contestUrl} target="_blank" rel="noreferrer noopener">Open contest<span className="sr-only"> (opens in a new tab)</span></a>}
+        {c.registrationUrl && !over && <a className="btn btn--ghost" href={safeHref(c.registrationUrl)} target="_blank" rel="noreferrer noopener">Register<span className="sr-only"> (opens in a new tab)</span></a>}
+        {c.contestUrl && !over && <a className="btn btn--ghost" href={safeHref(c.contestUrl)} target="_blank" rel="noreferrer noopener">Open contest<span className="sr-only"> (opens in a new tab)</span></a>}
         {!over && <Link className="link-arrow" to="/">Prepare with practice</Link>}
         {started && c.manualOk && !c.attended && <button className="btn btn--ghost" disabled={busy} onClick={() => run(() => post(`/contests/${c.id}/attended`), 'Attendance recorded, unverified.')}>Record attendance</button>}
       </div>
@@ -115,7 +116,7 @@ function Plan({ c, tz, now }: { c: ContestRow; tz: string; now: number }) {
           </p>
           <ul className="plan__list">
             {p.warmup.problems.map((s) => (
-              <li key={s.externalId}><a className="link-arrow" href={s.url} target="_blank" rel="noreferrer noopener">{s.title}<span className="sr-only"> (opens in a new tab)</span></a>{s.difficulty ? <span className="small"> · {s.difficulty}</span> : null}</li>
+              <li key={s.externalId}><a className="link-arrow" href={safeHref(s.url)} target="_blank" rel="noreferrer noopener">{s.title}<span className="sr-only"> (opens in a new tab)</span></a>{s.difficulty ? <span className="small"> · {s.difficulty}</span> : null}</li>
             ))}
           </ul>
         </>

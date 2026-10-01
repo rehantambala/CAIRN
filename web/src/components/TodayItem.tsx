@@ -1,3 +1,4 @@
+import { safeHref } from '../api';
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { post, type Item, type Platform } from '../api';
@@ -63,7 +64,7 @@ export function TodayItem({ item, index, onChange, current, auto }: { item: Item
                     {item.suggestions.map((s) => (
                       <li key={s.externalId} className="pick">
                         <span className="pick__k">{[s.difficulty, s.topic].filter(Boolean).join(' · ') || 'Unrated'}</span>
-                        <a className="pick__t" href={s.url} target="_blank" rel="noreferrer noopener">{s.title}<span className="sr-only"> (opens in a new tab)</span></a>
+                        <a className="pick__t" href={safeHref(s.url)} target="_blank" rel="noreferrer noopener">{s.title}<span className="sr-only"> (opens in a new tab)</span></a>
                         {!auto && !done && (
                           <button className="btn btn--ghost btn--sm" disabled={busy !== null} aria-busy={busy === s.externalId}
                             onClick={() => mark({ platform: s.platform, externalId: s.externalId })} aria-label={`Mark ${s.title} as solved`}>
@@ -74,7 +75,7 @@ export function TodayItem({ item, index, onChange, current, auto }: { item: Item
                     ))}
                   </ul>
                 )}
-                {item.guidance && <p className="small q__note">{item.guidance}{item.practiceUrl && <> <a href={item.practiceUrl} target="_blank" rel="noreferrer noopener">Open the practice page</a></>}</p>}
+                {item.guidance && <p className="small q__note">{item.guidance}{item.practiceUrl && <> <a href={safeHref(item.practiceUrl)} target="_blank" rel="noreferrer noopener">Open the practice page</a></>}</p>}
                 {auto && !done && <p className="small q__note">This platform is read from your public profile. Solve the problem, then select Check now; the score is recalculated from your verified total.</p>}
                 {!auto && !done && <p className="small q__note">A problem you mark yourself is recorded as unverified. Connecting the platform in Preferences verifies it.</p>}
                 {auto && <div className="btn-row" style={{ marginTop: 'var(--space-4)' }}><button className="btn btn--sm" onClick={sync} disabled={busy !== null} aria-busy={busy === 'sync'}>{busy === 'sync' ? 'Reading…' : 'Check now'}</button></div>}

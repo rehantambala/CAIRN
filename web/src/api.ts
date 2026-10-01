@@ -2,29 +2,44 @@ export class ApiError extends Error {
   constructor(public status: number, public code: string, message?: string) { super(message ?? code); }
 }
 
+const FRIENDLY: Record<string, string> = {
+  RATE_LIMITED: 'Too many requests. Please wait a little and try again.',
+  INTERNAL: 'Something went wrong on the server. Nothing was changed; please try again.',
+  CSRF_REJECTED: 'The request was refused. Please reload the page and try again.',
+  UNAUTHENTICATED: 'Your session has ended. Please sign in again.',
+};
+
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
-    credentials: 'include',
-    headers: body !== undefined ? { 'content-type': 'application/json' } : undefined,
+    credentials: 'same-origin',
+    // The marker header lets the server refuse cross-site writes (CSRF); browsers cannot add it to a forged form.
+    headers: { 'X-CAIRN-Request': '1', ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
     body: body !== undefined ? JSON.stringify(body) : undefined,
   });
   const text = await res.text();
-  const json = text ? JSON.parse(text) : null;
-  if (!res.ok) throw new ApiError(res.status, json?.error ?? 'ERROR', json?.message);
+  let json: any = null;
+  try { json = text ? JSON.parse(text) : null; } catch { /* not JSON: a proxy or host error page */ }
+  if (!res.ok) throw new ApiError(res.status, json?.error ?? 'ERROR', json?.message ?? FRIENDLY[json?.error] ?? `The request failed (${res.status}).`);
   return json as T;
 }
 
 export const get = <T,>(p: string) => request<T>('GET', p);
 export const post = <T,>(p: string, b?: unknown) => request<T>('POST', p, b ?? {});
 export const put = <T,>(p: string, b: unknown) => request<T>('PUT', p, b);
-export const del = <T,>(p: string) => request<T>('DELETE', p);
+export const del = <T,>(p: string, b?: unknown) => request<T>('DELETE', p, b);
+
+/** Only http(s) links are ever rendered from data; anything else (javascript:, data:) becomes no link at all. */
+export function safeHref(u: string | null | undefined): string | undefined {
+  if (!u) return undefined;
+  try { const p = new URL(u, window.location.origin); return p.protocol === 'https:' || p.protocol === 'http:' ? p.toString() : undefined; } catch { return undefined; }
+}
 
 export type Platform = 'leetcode' | 'codechef' | 'codeforces' | 'smartinterviews' | 'interviewbit' | 'hackerrank';
 export type SourceState = 'LIVE' | 'SYNCED' | 'IMPORTED' | 'MANUAL' | 'STALE' | 'ERROR';
 export type DayState = 'COMPLETE' | 'ACTIVE' | 'PARTIAL' | 'MISSED' | 'REST';
 
-export type Connection = 'NOT_CONNECTED' | 'PENDING_VERIFICATION' | 'LIVE' | 'SYNCED' | 'STALE' | 'ERROR' | 'MANUAL' | 'UNAVAILABLE';
+export type Connection = 'NOT_CONNECTED' | 'PENDING_VERIFICATION' | 'CONNECTED' | 'SYNCED' | 'STALE' | 'ERROR' | 'MANUAL' | 'UNAVAILABLE';
 export interface Source {
   platform: Platform; label: string; status: SourceState; updatedAt: string | null; note: string | null;
   capability: 'AUTOMATIC' | 'IMPORT' | 'MANUAL'; capabilityNote: string; username: string | null;

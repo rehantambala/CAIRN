@@ -1,7 +1,7 @@
 {
   "name": "CAIRN",
   "short_name": "CAIRN",
-  "description": "A personal performance instrument for competitive programming. Target: 25,000+.",
+  "description": "Your coding performance, organised around evidence. Target: 25,000+.",
   "start_url": "/?source=pwa",
   "scope": "/",
   "display": "standalone",

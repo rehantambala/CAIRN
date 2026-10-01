@@ -60,6 +60,7 @@ export function Settings() {
       </Section>
       <Section kicker="Sign-in" label="Sign-in methods"><SignIn data={data} onDone={done} /></Section>
       <Section kicker="Target" tone="deep" label="Target"><Profile data={data} onSaved={() => done('Saved.')} /></Section>
+      <Section kicker="Your data" label="Your data" id="data"><Account /></Section>
       {data.dev && <Section kicker="Development" tone="ink" label="Development tools"><Dev onDone={reload} /></Section>}
     </>
   );
@@ -101,8 +102,8 @@ function Profiles({ data, now, onDone }: { data: Payload; now: number; onDone: (
 const STATE_LINE: Record<Source['connection'], (s: Source, now: number) => string> = {
   NOT_CONNECTED: () => 'Not connected.',
   PENDING_VERIFICATION: (s) => `Pending verification. ${s.lastError ? `The platform could not be reached (${s.lastError}). ` : ''}It will be checked again automatically.`,
-  LIVE: (s, now) => `Verified ${ago(s.verifiedAt, now)}.`,
-  SYNCED: (s, now) => `Last synchronised ${ago(s.updatedAt, now)}.`,
+  CONNECTED: () => 'Verified with the platform. The first synchronisation follows shortly.',
+  SYNCED: () => 'Figures are read from the platform on a schedule, and when you synchronise.',
   STALE: (s, now) => `Last synchronised ${ago(s.updatedAt, now)}. The source has not confirmed these figures recently; they are retained, not refreshed.`,
   ERROR: (s, now) => `The source could not be read${s.lastError ? `: ${s.lastError}` : ''}. The last verified figures (${ago(s.updatedAt, now)}) are retained.`,
   MANUAL: (s, now) => (s.hasFigures ? `Figures entered by you, ${ago(s.updatedAt, now)}.` : 'Handle recorded. Enter your figures to include this platform in the score.'),
@@ -135,6 +136,12 @@ function ProfileRow({ s, detected, now, onDone }: { s: Source; detected: string 
       </div>
       {connected && <p className="statement src__handle">@{s.username}</p>}
       <p className="body">{STATE_LINE[s.connection](s, now)}</p>
+      {connected && automatic && (
+        <dl className="src__facts">
+          <div><dt>Last verified</dt><dd>{s.verifiedAt ? ago(s.verifiedAt, now) : 'Not yet'}</dd></div>
+          <div><dt>Last synchronised</dt><dd>{s.updatedAt && s.connection !== 'CONNECTED' && s.connection !== 'PENDING_VERIFICATION' ? ago(s.updatedAt, now) : 'Not yet'}</dd></div>
+        </dl>
+      )}
 
       {!connected && detected && (
         <p className="body">Detected on your GitHub profile: <span className="strong">@{detected}</span>. It is connected only if you confirm it.</p>
@@ -152,8 +159,9 @@ function ProfileRow({ s, detected, now, onDone }: { s: Source; detected: string 
         <div className="btn-row">
           {automatic && s.connection !== 'PENDING_VERIFICATION' && (
             <button className="btn" disabled={busy !== null} aria-busy={busy === 'sync'} onClick={() => run('sync', async () => {
-              const r = await post<{ ok: boolean; message: string }>(`/sync/${s.platform}`);
+              const r = await post<{ ok: boolean; message: string; cached?: boolean }>(`/sync/${s.platform}`);
               if (!r.ok) throw new Error(r.message);
+              if (r.cached) return 'Synchronised less than a minute ago; the figures shown are current.';
               return 'Synchronised. The score has been recalculated from the platform’s figures.';
             })}>{busy === 'sync' ? 'Synchronising' : 'Synchronise now'}</button>
           )}
@@ -255,6 +263,56 @@ function SignIn({ data, onDone }: { data: Payload; onDone: (m: string) => void }
       <ul className="ledger">{row('google', 'Google')}{row('github', 'GitHub')}</ul>
       {data.hasPassword && <p className="small">This account also has an email and password.</p>}
       {err && <p className="error-text" role="alert">{err}</p>}
+    </div>
+  );
+}
+
+function Account() {
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [confirm, setConfirm] = useState('');
+  async function exportData() {
+    setBusy('export'); setMsg(null);
+    try {
+      const data = await get<unknown>('/account/export');
+      const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' }));
+      const a = document.createElement('a');
+      a.href = url; a.download = `cairn-export-${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+      setMsg('Your export has been downloaded.');
+    } catch (e: any) { setMsg(e.message); } finally { setBusy(null); }
+  }
+  async function signOutEverywhere() {
+    setBusy('all'); setMsg(null);
+    try { await post('/auth/logout-all'); window.location.assign('/'); } catch (e: any) { setMsg(e.message); setBusy(null); }
+  }
+  async function remove(e: FormEvent) {
+    e.preventDefault(); setBusy('delete'); setMsg(null);
+    try { await del('/account', { confirm: 'DELETE' }); window.location.assign('/'); } catch (x: any) { setMsg(x.message); setBusy(null); }
+  }
+  return (
+    <div className="stack-lg">
+      <div className="stack">
+        <p className="lead">Everything {BRAND} holds about you can be downloaded, and the account can be closed at any time.</p>
+        <div className="btn-row">
+          <button className="btn" onClick={exportData} disabled={busy !== null} aria-busy={busy === 'export'}>{busy === 'export' ? 'Preparing' : 'Download my data'}</button>
+          <button className="btn btn--ghost" onClick={signOutEverywhere} disabled={busy !== null} aria-busy={busy === 'all'}>Sign out on every device</button>
+        </div>
+        <p className="small">The download contains your profile, connected handles, figures, execution record, score history, contest record and preferences. It contains no password, token or key.</p>
+      </div>
+      <form className="stack" onSubmit={remove} aria-labelledby="del-h">
+        <h3 id="del-h" className="display fig-xl">Delete account</h3>
+        <p className="body">Deletion is immediate and cannot be undone. Your sign-in methods, connected profiles, figures, execution record, reminders and devices are removed. Public contests and problems are not affected.</p>
+        <div className="btn-row" style={{ alignItems: 'end' }}>
+          <div className="field" style={{ minWidth: 220 }}>
+            <label htmlFor="del-c">Type DELETE to confirm</label>
+            <input id="del-c" className="input" value={confirm} autoComplete="off" spellCheck={false} onChange={(e) => setConfirm(e.target.value)} />
+          </div>
+          <button className="btn btn--ghost" disabled={busy !== null || confirm !== 'DELETE'} aria-busy={busy === 'delete'}>{busy === 'delete' ? 'Deleting' : 'Delete my account'}</button>
+        </div>
+      </form>
+      {msg && <p className="meta" role="status">{msg}</p>}
     </div>
   );
 }

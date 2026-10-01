@@ -120,17 +120,19 @@ export interface ContestSource {
   /** null: no permissible public source exists; the reason is shown instead of an empty list */
   fetch: (() => Promise<NormalizedContest[]>) | null;
   reason?: string;
+  /** true when the source lists every upcoming contest, so a missing one can be treated as cancelled */
+  complete?: boolean;
 }
 
 /** Official or first-party sources first; an aggregator only as an optional fallback; otherwise stated as unavailable. */
 export function contestSources(): ContestSource[] {
   return [
-    { key: 'codeforces', platform: 'codeforces', fetch: () => ADAPTERS.codeforces.getContests!() },
+    { key: 'codeforces', platform: 'codeforces', fetch: () => ADAPTERS.codeforces.getContests!(), complete: true },
     config.sources.leetcode
       ? { key: 'leetcode', platform: 'leetcode', fetch: fetchLeetCodeContests }
       : { key: 'leetcode', platform: 'leetcode', fetch: null, reason: 'Switched off on this server.' },
     config.sources.codechefContests
-      ? { key: 'codechef', platform: 'codechef', fetch: fetchCodeChefContests }
+      ? { key: 'codechef', platform: 'codechef', fetch: fetchCodeChefContests, complete: true }
       : { key: 'codechef', platform: 'codechef', fetch: null, reason: 'Switched off on this server.' },
     clistConfigured()
       ? { key: 'hackerrank', platform: 'hackerrank', fetch: async () => (await fetchClistContests()).filter((c) => c.platform === 'hackerrank') }
@@ -159,9 +161,21 @@ export async function discoverContests(_userId: string | null, now = Date.now(),
       continue;
     }
     try {
-      const list = (await s.fetch()).filter((c) => c.endAt.getTime() > now - DAY);
+      const all = await s.fetch();
+      const list = all.filter((c) => c.endAt.getTime() > now - DAY);
       await tx(async (c) => {
         for (const k of list) if ((await upsertContest(c, null, { ...k, source: s.key })).isNew) found++;
+        // A successful, non-empty, complete listing is authoritative for this platform's upcoming contests: one that
+        // was listed before and has vanished before starting has been cancelled or replaced. An empty, failed or
+        // partial listing (LeetCode publishes only the next two) cancels nothing, and a contest listed again is
+        // restored by the upsert above.
+        if (s.complete && all.length > 0) {
+          await c.query(
+            `update contests set cancelled_at = $3
+              where platform = $1 and start_at > $3 and cancelled_at is null and coalesce(source, '') <> 'file'
+                and not (external_contest_id = any($2::text[]))`,
+            [s.platform, all.map((k) => String(k.externalContestId)), new Date(now)]);
+        }
       });
       await pool.query(`insert into source_health(key, status, last_ok_at, checked_at, message) values ($1,'SYNCED',$2,$2,$3)
         on conflict (key) do update set status='SYNCED', last_ok_at=excluded.last_ok_at, checked_at=excluded.checked_at, message=excluded.message`,

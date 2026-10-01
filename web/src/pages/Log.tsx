@@ -1,3 +1,4 @@
+import { safeHref } from '../api';
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { type DayState, type Item, type Platform } from '../api';
@@ -183,7 +184,7 @@ function DayPanel({ date, onClose }: { date: string; onClose: () => void }) {
                 <div>
                   <p className="kicker">Problems</p>
                   {(data.problems ?? []).length === 0 ? <p className="body" style={{ marginTop: 'var(--space-3)' }}>None accepted.</p> : (
-                    <ul className="ledger" style={{ marginTop: 'var(--space-3)' }}>{data.problems!.map((p) => <li key={p.platform + p.id} className="ledger__row"><span className="ledger__k">{PLAT[p.platform] ?? p.platform}</span><span className="ledger__v">{p.url ? <a href={p.url} target="_blank" rel="noreferrer noopener">{p.title}</a> : p.title}</span><span className="state">{p.source === 'MANUAL' ? '○ Recorded by you' : '✓ Verified'}</span></li>)}</ul>
+                    <ul className="ledger" style={{ marginTop: 'var(--space-3)' }}>{data.problems!.map((p) => <li key={p.platform + p.id} className="ledger__row"><span className="ledger__k">{PLAT[p.platform] ?? p.platform}</span><span className="ledger__v">{p.url ? <a href={safeHref(p.url)} target="_blank" rel="noreferrer noopener">{p.title}</a> : p.title}</span><span className="state">{p.source === 'MANUAL' ? '○ Recorded by you' : '✓ Verified'}</span></li>)}</ul>
                   )}
                 </div>
               </div>

@@ -17,7 +17,7 @@ const fontsReady = typeof document !== 'undefined' && document.fonts
 
 void fontsReady.then(() => {
   createRoot(document.getElementById('root')!).render(
-    <StrictMode><BrowserRouter future={{ v7_startTransition: true, v7_relativeSplatPath: true }}><App /></BrowserRouter></StrictMode>,
+    <StrictMode><BrowserRouter><App /></BrowserRouter></StrictMode>,
   );
 });
 

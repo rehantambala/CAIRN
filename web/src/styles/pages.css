@@ -239,6 +239,18 @@
 .conn__i.is-on { background: rgba(243, 243, 233, 0.8); }
 .login__providers { display: grid; gap: var(--space-3); }
 .login__providers .btn { justify-content: center; text-align: center; white-space: nowrap; font-size: clamp(18px, 4.6vw, 24px); }
+.btn--provider { gap: var(--space-4); }
+.btn--provider::after { content: none; }
+.btn--provider svg { width: 24px; height: 24px; flex: none; }
+.btn--provider[aria-disabled='true'] { pointer-events: none; opacity: 0.7; }
+.btn--light { background: var(--color-cream); color: var(--color-deep); border-color: var(--color-deep); }
+.btn--light:hover { background: transparent; color: var(--color-deep); }
+.login__assure { margin: var(--space-2) 0 0; font-size: var(--fs-meta); line-height: 1.5; text-align: center; color: var(--color-deep); }
+.login__note { margin: 0; padding: var(--space-4) var(--space-5); border-radius: 20px; background: rgba(243, 243, 233, 0.6); color: var(--color-deep); font-weight: var(--weight-medium); text-align: center; }
+.src__facts { display: flex; flex-wrap: wrap; gap: var(--space-3) var(--space-8); margin: 0; font-size: var(--fs-meta); }
+.src__facts div { display: grid; gap: 2px; }
+.src__facts dt { text-transform: uppercase; letter-spacing: 0.08em; font-size: 12px; font-weight: var(--weight-medium); opacity: 0.8; }
+.src__facts dd { margin: 0; font-weight: var(--weight-medium); }
 .login__form > .as-button { justify-self: center; }
 
 /* ——— Preferences: profiles, reminders ——— */

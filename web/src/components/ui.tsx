@@ -41,14 +41,15 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
   );
 }
 
-const SOURCE_WORD: Record<SourceState, string> = { LIVE: 'Live', SYNCED: 'Synced', IMPORTED: 'Imported', MANUAL: 'Manual', STALE: 'Stale', ERROR: 'Error' };
+// Figures are as fresh as their last synchronisation; nothing is presented as "live".
+const SOURCE_WORD: Record<SourceState, string> = { LIVE: 'Synced', SYNCED: 'Synced', IMPORTED: 'Imported', MANUAL: 'Manual', STALE: 'Stale', ERROR: 'Error' };
 
 const CONNECTION_WORD: Record<Connection, string> = {
-  NOT_CONNECTED: 'Not connected', PENDING_VERIFICATION: 'Pending verification', LIVE: 'Live', SYNCED: 'Synced',
+  NOT_CONNECTED: 'Not connected', PENDING_VERIFICATION: 'Pending verification', CONNECTED: 'Connected', SYNCED: 'Synced',
   STALE: 'Stale', ERROR: 'Error', MANUAL: 'Manual', UNAVAILABLE: 'Unavailable',
 };
 const CONNECTION_STYLE: Record<Connection, SourceState> = {
-  NOT_CONNECTED: 'MANUAL', PENDING_VERIFICATION: 'STALE', LIVE: 'LIVE', SYNCED: 'SYNCED', STALE: 'STALE', ERROR: 'ERROR', MANUAL: 'MANUAL', UNAVAILABLE: 'STALE',
+  NOT_CONNECTED: 'MANUAL', PENDING_VERIFICATION: 'STALE', CONNECTED: 'SYNCED', SYNCED: 'SYNCED', STALE: 'STALE', ERROR: 'ERROR', MANUAL: 'MANUAL', UNAVAILABLE: 'STALE',
 };
 export function ConnectionChip({ c }: { c: Connection }) {
   return <span className="chip" data-s={CONNECTION_STYLE[c]}>{CONNECTION_WORD[c]}</span>;

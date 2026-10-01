@@ -1,3 +1,4 @@
+import { safeHref } from '../api';
 import { useMemo, useState } from 'react';
 import { post, type Platform } from '../api';
 import { ago } from '../format';
@@ -51,7 +52,7 @@ export function Problems() {
                 {data.selectedToday.map((s) => (
                   <li key={s.platform + s.externalId} className="ledger__row">
                     <span className="ledger__k">{PLAT_LABEL[s.platform]} · {s.difficulty ?? '—'}{s.topic ? ` · ${s.topic}` : ''}</span>
-                    <span className="ledger__v"><a href={s.url} target="_blank" rel="noreferrer noopener">{s.title}</a><br /><span className="muted">{s.reason}</span></span>
+                    <span className="ledger__v"><a href={safeHref(s.url)} target="_blank" rel="noreferrer noopener">{s.title}</a><br /><span className="muted">{s.reason}</span></span>
                     <span className="state">{s.solved ? '✓ Solved' : '○ Open'}</span>
                   </li>
                 ))}
@@ -70,7 +71,7 @@ export function Problems() {
                 {data.recentlySolved.map((s) => (
                   <li key={s.platform + s.id} className="ledger__row">
                     <span className="ledger__k">{PLAT_LABEL[s.platform]}{s.difficulty ? ` · ${s.difficulty}` : ''}</span>
-                    <span className="ledger__v">{s.url ? <a href={s.url} target="_blank" rel="noreferrer noopener">{s.title}</a> : s.title}</span>
+                    <span className="ledger__v">{s.url ? <a href={safeHref(s.url)} target="_blank" rel="noreferrer noopener">{s.title}</a> : s.title}</span>
                     <span className="muted">{new Date(s.at).getFullYear() < 2000 ? 'before the baseline' : ago(s.at, now)} · {s.source === 'MANUAL' ? 'recorded by you' : 'verified'}</span>
                   </li>
                 ))}
@@ -101,7 +102,7 @@ export function Problems() {
                 {list.slice(0, 120).map((p) => (
                   <li key={p.platform + p.id} className="ledger__row">
                     <span className="ledger__k">{PLAT_LABEL[p.platform]} · {p.difficulty ?? '—'}</span>
-                    <span className="ledger__v">{p.url ? <a href={p.url} target="_blank" rel="noreferrer noopener">{p.title}</a> : p.title}{p.topic && <span className="muted"> · {p.topic}</span>}</span>
+                    <span className="ledger__v">{p.url ? <a href={safeHref(p.url)} target="_blank" rel="noreferrer noopener">{p.title}</a> : p.title}{p.topic && <span className="muted"> · {p.topic}</span>}</span>
                     {p.solved ? <span className="state">✓ Solved</span>
                       : data.manualAllowed[p.platform] ? <button className="btn btn--ghost btn--sm" disabled={busy !== null} aria-busy={busy === p.id} onClick={() => mark(p)} aria-label={`Mark ${p.title} as solved`}>Mark as solved</button>
                       : <span className="muted">Verified automatically</span>}

@@ -6,22 +6,25 @@ Nothing needs an always-on machine. The scheduler wakes the service, jobs run to
 Create a project, copy the connection string into `DATABASE_URL`. Migrations run automatically on server start.
 
 ## 2. App: Render, Fly.io, Railway or similar
-`render.yaml` is included. One Node service serves the API and the built frontend (`npm run build`, `npm run start`). Set the variables from `.env.example`, with `NODE_ENV=production`; the server refuses to start without `SESSION_SECRET` (or `JWT_SECRET`), `CRON_SECRET` and `DATABASE_URL`. Migrations and the problem pool load on start. No account is created unless `OWNER_EMAIL` and `OWNER_PASSWORD` are both set; there are no default credentials in production.
+`render.yaml` is included. One Node service serves the API and the built frontend (`npm run build`, `npm run start`). Set the variables from `.env.example`, with `NODE_ENV=production`; the server refuses to start without `SESSION_SECRET` (or `JWT_SECRET`), `CRON_SECRET` and `DATABASE_URL`, and serves HTTPS only. Node 22.12 or later is required (`engines` in `package.json`). Migrations and the problem pool load on start. No account is created unless `OWNER_EMAIL` and `OWNER_PASSWORD` are both set; there are no default credentials in production.
 
 Serving everything from one origin keeps the session cookie same-site. If you host the frontend separately, add a rewrite from `/api/*` to the backend so requests stay same-origin.
 
 ## 3. Sign-in: Google and GitHub
 Anyone can create a CAIRN account with either provider. The account's identity is its internal id; Google and GitHub identities are linked to it (one of each per account, never shared between accounts), and a second provider is linked from Preferences while signed in.
 
-- **Google**: Google Cloud Console → APIs & Services → Credentials → OAuth client ID (Web application). Authorised redirect URI `https://<host>/api/auth/google/callback`. Scopes requested: `openid email profile`. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`.
-- **GitHub**: Settings → Developer settings → OAuth Apps → New. Callback URL `https://<host>/api/auth/github/callback`. Scope requested: `read:user` only. Set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`.
+- **Google**: Google Cloud Console → Google Auth Platform → Clients → Create client → *Web application*. Authorised redirect URI `https://<host>/api/auth/google/callback`. Leave "used by an AI-powered agent" unticked. Scopes requested: `openid email profile`. Set `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`. While the consent screen is in *Testing*, only listed test users can sign in; publish it to open sign-in to everyone.
+- **GitHub**: Settings → Developer settings → OAuth Apps → New. Callback URL `https://<host>/api/auth/github/callback` (exactly one, no wildcard). No scope is requested: CAIRN reads only the public profile, and revokes the token straight after. Set `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`.
+- Set **`PUBLIC_URL`** to the site's HTTPS origin. In production the callbacks are built from it (or from `GOOGLE_REDIRECT_URI` / `GITHUB_REDIRECT_URI`) and never from the request; a provider without a valid callback stays disabled.
 
-Both use the authorisation-code flow with a signed state cookie and PKCE (S256); secrets never reach the browser. Set `PUBLIC_URL` (or the `*_REDIRECT_URI` variables) so callbacks match exactly.
+Both use the authorisation-code flow with a signed, browser-bound state and PKCE (S256); secrets never reach the browser. When a sign-in fails, the server log has one line `{"msg":"oauth failed","provider":…,"reason":…}` saying why (for example `token 200 incorrect_client_credentials` for a wrong GitHub secret, `token 401 invalid_client` for a wrong Google secret, `state cookie missing` when the callback reached a different browser).
 
-**Existing account.** Your current data stays in the account created from `OWNER_EMAIL`. To reach it with a provider: sign in with email and password, then Preferences → Sign-in → Link Google / Link GitHub. Alternatively, a Google sign-in whose verified address equals `OWNER_EMAIL`, or a GitHub sign-in whose login equals `OWNER_GITHUB`, attaches to that account the first time instead of creating a new one.
+**Existing account.** Your current data stays in the account created from `OWNER_EMAIL`. To reach it with a provider: sign in with email and password, then Preferences → Sign-in → Link Google / Link GitHub. Alternatively, a Google sign-in whose address Google has verified and which equals `OWNER_EMAIL`, or a GitHub sign-in whose numeric user id equals `OWNER_GITHUB`, attaches to that account the first time. (`OWNER_GITHUB` is the number from `https://api.github.com/users/<login>`, never a login name, which can change hands.)
+
+Sessions are opaque random tokens stored hashed in the database; see `SECURITY.md`.
 
 ## 4. Scheduler
-The server runs its own schedule (reminders every minute, synchronisation every 30 minutes, contests every two hours). On free hosts that sleep, keep the GitHub Actions workflow: add repository secrets `CRON_SECRET` and `VECTOR_API_URL`; `.github/workflows/jobs.yml` calls `POST /api/jobs/all` every 10 minutes, which also keeps the service awake. Every job is idempotent, and reminder delivery claims rows with `SKIP LOCKED`, so the two triggers never send a reminder twice.
+The server runs its own schedule (reminders every minute, synchronisation every 30 minutes, contests every two hours). On free hosts that sleep, keep the GitHub Actions workflow: add repository secrets `CRON_SECRET` and `CAIRN_API_URL` (the site's HTTPS origin); `.github/workflows/jobs.yml` calls `POST /api/jobs/all` every 10 minutes, which also keeps the service awake. Every job is idempotent and runs under a database lease, and reminder delivery claims rows with `SKIP LOCKED`, so the two triggers never run a job twice at once or send a reminder twice.
 
 Jobs: `contests` (global discovery from each platform's own listing), `sync` (every connected profile of every user), `rollover` (close past days, plan today), `notify` (schedule and deliver each user's reminders), `pool` (problem pool, at most daily).
 

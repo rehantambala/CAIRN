@@ -1,3 +1,4 @@
+import { safeHref } from '../api';
 import { useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import type { Item, Next } from '../api';
@@ -87,7 +88,7 @@ export function NextBlock({ next, items, delta, now, fetchedAt }: { next: Next; 
         {isContest
           ? <Link to={next.href} className="btn btn--big">Open the contest</Link>
           : url
-            ? <a href={url} target="_blank" rel="noreferrer noopener" className="btn btn--big">Begin now<span className="sr-only"> (opens in a new tab)</span></a>
+            ? <a href={safeHref(url)} target="_blank" rel="noreferrer noopener" className="btn btn--big">Begin now<span className="sr-only"> (opens in a new tab)</span></a>
             : <Link to={next.href} className="btn btn--big">Open today’s list</Link>}
         {!isContest && <a href="#today-list" className="link-arrow">View the full list</a>}
       </div>

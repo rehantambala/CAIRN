@@ -11,7 +11,6 @@ import { recordParticipation, recordRating } from '../services/contests.js';
 import { nextKey, processAccepted, refreshAfterChange } from '../services/pipeline.js';
 import { pushConfigured, scheduleAll } from '../services/notify.js';
 import { getUser, loadScore, recordEvent } from '../services/state.js';
-import { syncPlatform } from '../services/sync.js';
 import { rebaseline } from '../services/baseline.js';
 import { connectProfile, detectFromGitHub, disconnectProfile, extractHandles, getDetected, type ConnectResult } from '../services/accounts.js';
 import { identitiesOf } from '../services/identity.js';
@@ -20,7 +19,11 @@ import {
   analyticsView, awardsView, calendarView, contestsView, dayDetail, overview, problemsView,
   scoreView, simulate, sourcesView, trajectoryView,
 } from '../services/views.js';
-import { requireAuth, type AuthedRequest } from './auth.js';
+import { COOKIE, requireAuth, type AuthedRequest } from './auth.js';
+import { limiter, log, routeOf } from './security.js';
+import { isAllowedPushEndpoint, PUSH_KEY_RE } from '../domain/pushEndpoint.js';
+import { deleteAccount, exportAccount } from '../services/account.js';
+import { requestSync } from '../services/syncGate.js';
 import { closePastDays, applyCommitmentToToday } from '../services/derived.js';
 
 export const api = Router();
@@ -28,13 +31,34 @@ api.use(requireAuth);
 
 const uid = (req: Request) => (req as AuthedRequest).userId;
 const platformSchema = z.enum(ALL_PLATFORMS as [Platform, ...Platform[]]);
+/** A real calendar date (YYYY-MM-DD), not merely the right shape: 2026-13-45 is refused before it reaches the database. */
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).refine((d) => {
+  const t = new Date(`${d}T00:00:00Z`);
+  return !Number.isNaN(t.getTime()) && t.toISOString().slice(0, 10) === d && t.getUTCFullYear() >= 2000 && t.getUTCFullYear() <= 2100;
+});
+/**
+ * Every handler runs through here: input errors become a 400 naming the fields (never echoing values), anything
+ * else a generic 500 whose details stay in the server log under the request id.
+ */
 const wrap = (fn: (req: Request, res: Response) => Promise<unknown>) => (req: Request, res: Response) => {
   fn(req, res).catch((e) => {
-    if (e instanceof z.ZodError) return res.status(400).json({ error: 'INVALID_INPUT', issues: e.issues });
-    console.error(e);
-    res.status(500).json({ error: 'INTERNAL' });
+    if (res.headersSent) return;
+    if (e instanceof z.ZodError) {
+      return res.status(400).json({ error: 'INVALID_INPUT', issues: e.issues.map((i) => ({ path: i.path.join('.'), code: i.code })) });
+    }
+    log('error', 'handler failed', { requestId: res.locals.requestId, route: routeOf(req), userId: res.locals.userId ?? null, error: String(e?.message ?? e), stack: config.isProd ? undefined : e?.stack });
+    res.status(500).json({ error: 'INTERNAL', requestId: res.locals.requestId });
   });
 };
+
+// Expensive or externally visible work is limited per account (after requireAuth, so the key is the user).
+const perUser = (name: string, limit: number, windowMs: number) => limiter({ name, limit, windowMs, by: 'user' });
+const syncLimit = perUser('sync', 30, 15 * 60_000);
+const profileLimit = perUser('profiles', 20, 15 * 60_000);
+const strategistLimit = perUser('strategist', 30, 60 * 60_000);
+const pushLimit = perUser('push', 10, 60 * 60_000);
+const accountLimit = perUser('account', 5, 60 * 60_000);
+const writeLimit = perUser('writes', 60, 60_000);
 
 // ---- read views ----
 api.get('/overview', wrap(async (req, res) => { res.json(await overview(pool, uid(req), Date.now())); }));
@@ -46,7 +70,7 @@ api.get('/today', wrap(async (req, res) => {
 }));
 
 /** Advice only; computed from this user's context. Never writes source data. */
-api.get('/strategist', wrap(async (req, res) => { res.json(await strategistFor(pool, uid(req), Date.now())); }));
+api.get('/strategist', strategistLimit, wrap(async (req, res) => { res.json(await strategistFor(pool, uid(req), Date.now())); }));
 api.get('/contests', wrap(async (req, res) => { res.json(await contestsView(pool, uid(req), Date.now())); }));
 api.get('/problems', wrap(async (req, res) => { res.json(await problemsView(pool, uid(req), Date.now())); }));
 api.get('/trajectory', wrap(async (req, res) => { res.json(await trajectoryView(pool, uid(req), Date.now())); }));
@@ -54,12 +78,12 @@ api.get('/awards', wrap(async (req, res) => { res.json(await awardsView(pool, ui
 api.get('/analytics', wrap(async (req, res) => { res.json(await analyticsView(pool, uid(req), Date.now())); }));
 
 api.get('/calendar', wrap(async (req, res) => {
-  const month = z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/).parse(req.query.month ?? new Date().toISOString().slice(0, 7));
+  const month = z.string().regex(/^(20\d{2}|2100)-(0[1-9]|1[0-2])$/).parse(req.query.month ?? new Date().toISOString().slice(0, 7));
   res.json(await calendarView(pool, uid(req), month, Date.now()));
 }));
 
 api.get('/calendar/:date', wrap(async (req, res) => {
-  const date = z.string().regex(/^\d{4}-\d{2}-\d{2}$/).parse(req.params.date);
+  const date = isoDate.parse(req.params.date);
   res.json(await dayDetail(pool, uid(req), date, Date.now()));
 }));
 
@@ -74,7 +98,7 @@ const simSchema = z.object({
   leetcode: ratedSchema, codechef: ratedSchema, codeforces: ratedSchema,
   hackerrank: z.number().int().min(0).max(1_000_000), smartinterviews: z.number().int().min(0).max(1_000_000), interviewbit: z.number().int().min(0).max(1_000_000),
 });
-api.post('/score/simulate', wrap(async (req, res) => {
+api.post('/score/simulate', writeLimit, wrap(async (req, res) => {
   const sim = simSchema.parse(req.body);
   const loaded = await loadScore(pool, uid(req));
   const user = await getUser(pool, uid(req));
@@ -83,7 +107,7 @@ api.post('/score/simulate', wrap(async (req, res) => {
 
 // ---- actions ----
 /** Lazy rollover: closes past days and creates today's objective. The scheduled job does the same. */
-api.post('/refresh', wrap(async (req, res) => {
+api.post('/refresh', writeLimit, wrap(async (req, res) => {
   const now = Date.now();
   await tx(async (c) => {
     await closePastDays(c, uid(req), now);
@@ -94,11 +118,11 @@ api.post('/refresh', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-api.post('/contests/:id/commit', wrap(async (req, res) => {
+api.post('/contests/:id/commit', writeLimit, wrap(async (req, res) => {
   const id = z.string().uuid().parse(req.params.id);
-  const prep = z.object({ prepMinutes: z.number().int().min(0).max(240).default(30) }).parse(req.body ?? {}).prepMinutes;
-  const c = (await pool.query('select id, end_at from contests where id=$1', [id])).rows[0];
-  if (!c) return res.status(404).json({ error: 'NOT_FOUND' });
+  const prep = z.object({ prepMinutes: z.number().int().min(0).max(240).default(30) }).strict().parse(req.body ?? {}).prepMinutes;
+  const c = (await pool.query('select id, end_at, cancelled_at from contests where id=$1', [id])).rows[0];
+  if (!c || c.cancelled_at) return res.status(404).json({ error: 'NOT_FOUND' });
   if ((c.end_at as Date).getTime() < Date.now()) return res.status(409).json({ error: 'CONTEST_FINISHED' });
   await tx(async (cl) => {
     await cl.query(
@@ -113,7 +137,7 @@ api.post('/contests/:id/commit', wrap(async (req, res) => {
   res.json({ ok: true, message: 'Your commitment is recorded, and reminders are scheduled.' });
 }));
 
-api.delete('/contests/:id/commit', wrap(async (req, res) => {
+api.delete('/contests/:id/commit', writeLimit, wrap(async (req, res) => {
   const id = z.string().uuid().parse(req.params.id);
   await tx((cl) => cl.query('delete from contest_commitments where user_id=$1 and contest_id=$2', [uid(req), id]).then(() => applyCommitmentToToday(cl, uid(req), id, false, Date.now())));
   await pool.query(`delete from notifications where user_id=$1 and payload_json->>'contestId'=$2 and status='PENDING' and type in ('CONTEST_1H','CONTEST_10M','CONTEST_CLOSED')`, [uid(req), id]);
@@ -121,7 +145,7 @@ api.delete('/contests/:id/commit', wrap(async (req, res) => {
 }));
 
 // Manual fallback. Only for platforms with no authoritative feed.
-api.post('/contests/:id/attended', wrap(async (req, res) => {
+api.post('/contests/:id/attended', writeLimit, wrap(async (req, res) => {
   const id = z.string().uuid().parse(req.params.id);
   const c = (await pool.query('select platform, start_at from contests where id=$1', [id])).rows[0];
   if (!c) return res.status(404).json({ error: 'NOT_FOUND' });
@@ -136,7 +160,7 @@ api.post('/contests/:id/attended', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-api.post('/problems/solve', wrap(async (req, res) => {
+api.post('/problems/solve', writeLimit, wrap(async (req, res) => {
   const b = z.object({ platform: platformSchema, externalId: z.string().min(1).max(200) }).parse(req.body);
   if (ADAPTERS[b.platform].capability === 'AUTOMATIC') {
     const linked = (await pool.query(`select 1 from platform_accounts where user_id=$1 and platform=$2 and username <> ''`, [uid(req), b.platform])).rowCount;
@@ -147,28 +171,29 @@ api.post('/problems/solve', wrap(async (req, res) => {
   res.json(r);
 }));
 
-api.post('/sync/:platform', wrap(async (req, res) => {
+/** One synchronisation per person and platform at a time, and none within a minute of the last one. */
+api.post('/sync/:platform', syncLimit, wrap(async (req, res) => {
   const platform = platformSchema.parse(req.params.platform);
-  res.json(await syncPlatform(uid(req), platform));
+  res.json(await requestSync(uid(req), platform));
 }));
 
 /** Connect a coding profile: verified with the platform where it can be, recorded as stated where it cannot. */
-api.post('/profiles/:platform', wrap(async (req, res) => {
+api.post('/profiles/:platform', profileLimit, wrap(async (req, res) => {
   const platform = platformSchema.parse(req.params.platform);
-  const { handle } = z.object({ handle: z.string().trim().min(1).max(80) }).parse(req.body);
+  const { handle } = z.object({ handle: z.string().trim().min(1).max(80) }).strict().parse(req.body);
   const r = await connectProfile(pool, uid(req), platform, handle);
   res.status(r.ok ? 200 : r.state === 'NOT_FOUND' ? 404 : 400).json(r);
 }));
 
 /** Disconnect: synchronisation stops; history and figures are kept. */
-api.delete('/profiles/:platform', wrap(async (req, res) => {
+api.delete('/profiles/:platform', writeLimit, wrap(async (req, res) => {
   await disconnectProfile(pool, uid(req), platformSchema.parse(req.params.platform));
   res.json({ ok: true });
 }));
 
 /** Paste any profile addresses: each recognised handle is verified and connected. Nothing is assumed. */
-api.post('/profiles/discover', wrap(async (req, res) => {
-  const { text } = z.object({ text: z.string().max(5000) }).parse(req.body ?? {});
+api.post('/profiles/discover', profileLimit, wrap(async (req, res) => {
+  const { text } = z.object({ text: z.string().max(5000) }).strict().parse(req.body ?? {});
   const handles = extractHandles([text]);
   const results: (ConnectResult & { platform: string })[] = [];
   for (const [platform, h] of Object.entries(handles) as [Platform, string][]) results.push({ platform, ...(await connectProfile(pool, uid(req), platform, h)) });
@@ -176,7 +201,7 @@ api.post('/profiles/discover', wrap(async (req, res) => {
 }));
 
 /** Reads the signed-in user's public GitHub profile and suggests handles; nothing is connected. */
-api.post('/profiles/detect', wrap(async (req, res) => {
+api.post('/profiles/detect', profileLimit, wrap(async (req, res) => {
   res.json({ detected: await detectFromGitHub(pool, uid(req)) });
 }));
 
@@ -188,13 +213,13 @@ const importSchema = z.object({
   contribution: z.number().int().min(0).max(1_000_000).optional(),
   solved: z.array(z.object({ id: z.string().min(1).max(200), acceptedAt: z.string().datetime().optional() })).max(5000).optional(),
   note: z.string().max(200).optional(),
-});
+}).strict();
 
 /**
  * User-owned statistics: a new baseline from the platform's own numbers.
  * Counts move the derived baseline to "now" so later accepted problems are counted on top, once.
  */
-api.post('/import', wrap(async (req, res) => {
+api.post('/import', writeLimit, wrap(async (req, res) => {
   const b = importSchema.parse(req.body);
   const status = b.contribution !== undefined && !['leetcode', 'codechef', 'codeforces'].includes(b.platform) ? 'MANUAL' : 'IMPORTED';
   await tx(async (c) => {
@@ -222,7 +247,7 @@ api.post('/import', wrap(async (req, res) => {
   res.json({ ok: true, status });
 }));
 
-api.post('/codeforces/derive-from-history', wrap(async (req, res) => {
+api.post('/codeforces/derive-from-history', writeLimit, wrap(async (req, res) => {
   // After a verified sync, let synced history be the only source of truth for Codeforces counts.
   await tx(async (c) => {
     await c.query(`update platform_stats set base_problems=0, base_contests=0, base_as_of='epoch' where user_id=$1 and platform='codeforces'`, [uid(req)]);
@@ -247,15 +272,16 @@ api.get('/settings', wrap(async (req, res) => {
   });
 }));
 
-api.put('/settings', wrap(async (req, res) => {
+api.put('/settings', writeLimit, wrap(async (req, res) => {
+  // Strict: unknown fields (score, userId, isAdmin, ...) are rejected, never silently applied or ignored.
   const b = z.object({
-    displayName: z.string().trim().min(1).max(60).optional(),
+    displayName: z.string().trim().min(1).max(60).refine((v) => !/[\u0000-\u001f\u007f]/.test(v)).optional(),
     timezone: z.string().refine((tz) => { try { new Intl.DateTimeFormat('en', { timeZone: tz }); return true; } catch { return false; } }).optional(),
     targetScore: z.number().int().min(1000).max(1_000_000).optional(),
-    targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+    targetDate: isoDate.nullable().optional(),
     dailyMinutes: z.number().int().min(30).max(480).optional(),
-    reminders: z.object({ enabled: z.boolean(), h24: z.boolean(), h1: z.boolean(), m10: z.boolean() }).optional(),
-  }).parse(req.body);
+    reminders: z.object({ enabled: z.boolean(), h24: z.boolean(), h1: z.boolean(), m10: z.boolean() }).strict().optional(),
+  }).strict().parse(req.body);
   if (b.reminders) {
     await pool.query('update users set remind_enabled=$2, remind_24h=$3, remind_1h=$4, remind_10m=$5, updated_at=now() where id=$1',
       [uid(req), b.reminders.enabled, b.reminders.h24, b.reminders.h1, b.reminders.m10]);
@@ -274,8 +300,13 @@ api.put('/settings', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
-api.post('/push/subscribe', wrap(async (req, res) => {
-  const b = z.object({ endpoint: z.string().url().max(1000), keys: z.object({ p256dh: z.string(), auth: z.string() }) }).parse(req.body);
+api.post('/push/subscribe', pushLimit, wrap(async (req, res) => {
+  const b = z.object({
+    // Only the browsers' push services: the server later sends requests to this address (SSRF otherwise).
+    endpoint: z.string().max(1000).refine(isAllowedPushEndpoint, 'not a browser push service'),
+    expirationTime: z.number().nullable().optional(),
+    keys: z.object({ p256dh: z.string().regex(PUSH_KEY_RE.p256dh), auth: z.string().regex(PUSH_KEY_RE.auth) }).strict(),
+  }).strict().parse(req.body);
   await pool.query(
     `insert into push_subscriptions(user_id, endpoint, p256dh, auth) values ($1,$2,$3,$4)
      on conflict (endpoint) do update set user_id=excluded.user_id, p256dh=excluded.p256dh, auth=excluded.auth`, [uid(req), b.endpoint, b.keys.p256dh, b.keys.auth],
@@ -292,6 +323,25 @@ api.get('/notifications', wrap(async (req, res) => {
     type: r.type, status: r.status, scheduledFor: r.scheduled_for, deliveredAt: r.delivered_at,
     body: r.payload_json?.message?.body ?? null, reason: r.payload_json?.reason ?? null,
   })));
+}));
+
+// ---- the account itself ----
+/** Everything CAIRN holds about the signed-in person, as JSON. No secret, token or other person's data is included. */
+api.get('/account/export', accountLimit, wrap(async (req, res) => {
+  const data = await exportAccount(pool, uid(req));
+  res.setHeader('Content-Disposition', `attachment; filename="cairn-export-${new Date().toISOString().slice(0, 10)}.json"`);
+  res.json(data);
+}));
+
+/**
+ * Deletes the account and everything that belongs to it: sign-in identities, sessions, profile connections,
+ * statistics, execution history, reminders, devices and strategist notes. Global contests and problems remain.
+ */
+api.delete('/account', accountLimit, wrap(async (req, res) => {
+  z.object({ confirm: z.literal('DELETE') }).strict().parse(req.body);
+  await deleteAccount(pool, uid(req));
+  res.clearCookie(COOKIE, { httpOnly: true, sameSite: 'lax', secure: config.isProd, path: '/' });
+  res.json({ ok: true });
 }));
 
 // ---- development-only simulation, for verifying the loop without a live platform ----

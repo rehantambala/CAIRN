@@ -41,7 +41,7 @@ function client() {
     async req(method: string, path: string, body?: unknown) {
       const res = await fetch(base + path, {
         method, redirect: 'manual',
-        headers: { cookie: cookie(), ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
+        headers: { cookie: cookie(), 'x-cairn-request': '1', ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
         body: body !== undefined ? JSON.stringify(body) : undefined,
       });
       keep(res);
@@ -62,6 +62,7 @@ interface FakeUser { provider: 'github' | 'google'; id: string; login?: string; 
 let nextUser: FakeUser | null = null;
 let lastTokenRequest: Record<string, string> = {};
 providerHttp.postForm = async (_url, body) => { lastTokenRequest = body; return { access_token: `tok-${body.code}` }; };
+providerHttp.revokeGithub = async () => {};
 providerHttp.getJson = async (url) => {
   const u = nextUser!;
   if (url.includes('github')) return { id: Number(u.id), login: u.login, name: u.name ?? u.login, avatar_url: 'https://avatars.example/a.png' };
@@ -80,7 +81,7 @@ async function oauth(c: Client, u: FakeUser, opts: { link?: boolean; tz?: string
 
 beforeAll(async () => {
   Object.assign(config, {
-    githubClientId: 'gh-id', githubClientSecret: 'gh-secret', googleClientId: 'g-id', googleClientSecret: 'g-secret', ownerGithub: 'owner-gh',
+    githubClientId: 'gh-id', githubClientSecret: 'gh-secret', googleClientId: 'g-id', googleClientSecret: 'g-secret', ownerGithub: '999',
   });
   server = createApp().listen(0);
   base = `http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -103,7 +104,7 @@ describe('authentication', () => {
   it('GitHub: sign-up creates a new account with its own id; sign-in returns to it; no duplicate', async () => {
     const c = client();
     const { start, done } = await oauth(c, { provider: 'github', id: '101', login: 'alice' }, { tz: 'Europe/London' });
-    expect(start.get('scope')).toBe('read:user');                       // minimal permission
+    expect(start.get('scope')).toBeNull();                               // no scope: public profile only
     expect(start.get('code_challenge_method')).toBe('S256');
     // PKCE: the verifier sent to the token endpoint hashes to the challenge sent to the browser.
     expect(createHash('sha256').update(lastTokenRequest.code_verifier).digest('base64url')).toBe(start.get('code_challenge'));
@@ -164,8 +165,9 @@ describe('authentication', () => {
     expect((await oauth(c, { provider: 'github', id: '301', login: 'x' }, { tamper: true })).done.location).toBe('/?auth=failed');
     expect(await userCount()).toBe(1);
 
-    const expired = jwt.sign({ sub: ownerId }, config.jwtSecret, { expiresIn: -10 });
-    const res = await fetch(`${base}/api/overview`, { headers: { cookie: `vector_session=${expired}` } });
+    // A signed token with the owner's id is not a session: sessions are opaque and exist only server-side.
+    const forged = jwt.sign({ sub: ownerId }, config.jwtSecret, { expiresIn: 3600 });
+    const res = await fetch(`${base}/api/overview`, { headers: { cookie: `cairn_session=${forged}` } });
     expect(res.status).toBe(401);
 
     await oauth(c, { provider: 'github', id: '302', login: 'solo' });
@@ -403,7 +405,7 @@ describe('reminders: the complete chain', () => {
   const MIN = 60_000;
   async function person(tz: string) {
     const id = (await pool.query(`insert into users(display_name, timezone) values ('r', $1) returning id`, [tz])).rows[0].id as string;
-    await pool.query(`insert into push_subscriptions(user_id, endpoint, p256dh, auth) values ($1,$2,'k','a')`, [id, `https://push.example/${id}`]);
+    await pool.query(`insert into push_subscriptions(user_id, endpoint, p256dh, auth) values ($1,$2,'k','a')`, [id, `https://fcm.googleapis.com/fcm/send/${id}`]);
     return id;
   }
 
@@ -480,7 +482,7 @@ describe('strategist', () => {
     expect(r.status).toBe('OK');
     expect(r.advice?.next.action).toMatch(/LeetCode/);
     const ctx = JSON.parse(seen);
-    expect(ctx.currentScore).toBe(12604);
+    expect(ctx.verified.currentScore).toBe(12604);
     expect(seen).not.toContain('999');                                       // nobody else's figures
     expect((await loadScore(pool, ownerId)).score.overall).toBe(before);    // advice changes nothing
 

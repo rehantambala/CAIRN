@@ -1,7 +1,7 @@
 # Free-tier friendly: one Node service serves the API and the built frontend; Postgres lives on Supabase (or Render's free DB).
 services:
   - type: web
-    name: vector
+    name: cairn
     runtime: node
     plan: free
     buildCommand: npm ci && npm run build

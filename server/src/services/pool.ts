@@ -39,7 +39,7 @@ export function parseLeetCodeProblems(raw: unknown): PoolRow[] {
     }));
 }
 
-const LC_QUERY = `query vectorPool($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
+const LC_QUERY = `query cairnPool($categorySlug: String, $limit: Int, $skip: Int, $filters: QuestionListFilterInput) {
   problemsetQuestionList: questionList(categorySlug: $categorySlug, limit: $limit, skip: $skip, filters: $filters) {
     questions: data { title titleSlug difficulty isPaidOnly topicTags { name } }
   }

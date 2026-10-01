@@ -19,6 +19,9 @@ export interface ProviderProfile {
 
 export type Outcome = 'SIGNED_IN' | 'CREATED' | 'LINKED' | 'CONFLICT';
 
+/** Provider-supplied names are untrusted text: control characters are removed and the length is bounded. */
+const cleanName = (v: string | null) => (v ?? '').replace(/[\u0000-\u001f\u007f-\u009f\u200b-\u200f\u202a-\u202e\u2066-\u2069]/g, '').trim().slice(0, 60);
+
 export const validTimezone = (tz: unknown): tz is string => {
   if (typeof tz !== 'string' || tz.length > 64) return false;
   try { new Intl.DateTimeFormat('en', { timeZone: tz }); return true; } catch { return false; }
@@ -28,8 +31,8 @@ export const validTimezone = (tz: unknown): tz is string => {
  * Resolves a verified provider identity to a CAIRN user.
  *  1. A known identity signs its user in (or, while someone else is signed in, is refused as a conflict).
  *  2. While signed in, an unknown identity is linked to the signed-in user.
- *  3. Bootstrap: the existing owner's first GitHub sign-in (OWNER_GITHUB) or a Google address verified by Google
- *     that equals an existing password account's address is attached to that account rather than duplicating it.
+ *  3. Bootstrap: the existing owner's first GitHub sign-in (OWNER_GITHUB, a numeric GitHub id) or a Google address
+ *     verified by Google that equals OWNER_EMAIL is attached to that account rather than duplicating it.
  *  4. Otherwise a new user is created.
  * Display names are never used to match accounts.
  */
@@ -47,13 +50,17 @@ export async function resolveIdentity(db: Db, p: ProviderProfile, currentUserId:
 
   let target: string | null = currentUserId;
   let outcome: Outcome = 'LINKED';
-  if (!target) {
-    if (p.provider === 'github' && config.ownerGithub && p.login && p.login.toLowerCase() === config.ownerGithub.toLowerCase() && config.ownerEmail) {
-      target = (await db.query('select id from users where email=$1', [config.ownerEmail])).rows[0]?.id ?? null;
-    } else if (p.provider === 'google' && p.email && p.emailVerified) {
-      target = (await db.query('select id from users where lower(email)=lower($1) and password_hash is not null', [p.email])).rows[0]?.id ?? null;
+  if (!target && config.ownerEmail) {
+    // Bootstrap of the one pre-existing account only. Nobody else's account is ever matched by an email or a name.
+    //   GitHub: the configured numeric user id (immutable), never a login name, which can change hands.
+    //   Google: an address Google itself has verified that equals OWNER_EMAIL exactly.
+    const ownerGithubId = /^[1-9][0-9]{0,19}$/.test(config.ownerGithub) ? config.ownerGithub : null;
+    const isOwner = (p.provider === 'github' && ownerGithubId !== null && p.providerUserId === ownerGithubId)
+      || (p.provider === 'google' && p.emailVerified && !!p.email && p.email.toLowerCase() === config.ownerEmail);
+    if (isOwner) {
+      target = (await db.query('select id from users where lower(email)=$1 and password_hash is not null', [config.ownerEmail])).rows[0]?.id ?? null;
+      if (target) outcome = 'SIGNED_IN';
     }
-    if (target) outcome = 'SIGNED_IN';
   }
   if (target) {
     // A user holds at most one identity per provider; a second, different one is refused rather than replacing it.
@@ -63,7 +70,7 @@ export async function resolveIdentity(db: Db, p: ProviderProfile, currentUserId:
     const email = p.provider === 'google' && p.emailVerified ? p.email : null;   // only a verified address is stored on the user
     target = (await db.query(
       `insert into users(email, display_name, avatar_url, timezone) values ($1,$2,$3,$4) returning id`,
-      [email, (p.name || p.login || 'New member').slice(0, 60), p.avatarUrl, validTimezone(tz) ? tz : 'UTC'],
+      [email, cleanName(p.name) || cleanName(p.login) || 'New member', p.avatarUrl, validTimezone(tz) ? tz : 'UTC'],
     )).rows[0].id as string;
     outcome = 'CREATED';
   }

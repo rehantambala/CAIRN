@@ -1,5 +1,5 @@
 import { BRAND } from './brand.js';
-import { hourMinute } from './time.js';
+import { dayKey, hourMinute } from './time.js';
 import { PLATFORM_LABEL, type Platform } from './types.js';
 
 export type NotificationType =
@@ -54,9 +54,11 @@ export function buildMessage(
   const name = c ? `${PLATFORM_LABEL[c.platform]} ${c.title}` : '';
   const link = c ? `/contests?focus=${encodeURIComponent(c.id)}` : '/';
   switch (type) {
-    case 'CONTEST_24H':
+    case 'CONTEST_24H': {
+      const when = c ? `${dayKey(c.startAt, tz) === dayKey(now, tz) ? 'today' : 'tomorrow'} at ${hourMinute(c.startAt, tz)}` : 'tomorrow';
       return { title: BRAND, url: link,
-        body: `${name || 'A rated contest'} begins tomorrow${c ? ` at ${hourMinute(c.startAt, tz)}` : ''}. A rated attempt is the only route to rating movement; committing schedules your preparation.` };
+        body: `${name || 'A rated contest'} begins ${when}. A rated attempt is the only route to rating movement; committing schedules your preparation.` };
+    }
     case 'CONTEST_1H':
       return { title: BRAND, url: link,
         body: `${name || 'Your contest'} begins in about one hour. Preparation should start now, so that the attempt begins from a settled position.` };
@@ -77,9 +79,24 @@ export function buildMessage(
   }
 }
 
-/** A planned reminder is due when its time has arrived and its moment is still relevant. */
+const OFFSET: Partial<Record<NotificationType, number>> = { CONTEST_24H: 24 * 60 * MIN, CONTEST_1H: 60 * MIN, CONTEST_10M: 10 * MIN };
+
+/** When a timed reminder belongs, given the contest's current start (which a platform may have moved). */
+export function expectedAt(type: NotificationType, c: ContestLite): number | null {
+  if (type === 'CONTEST_CLOSED') return c.endAt;
+  const off = OFFSET[type];
+  return off === undefined ? null : c.startAt - off;
+}
+
+/**
+ * A planned reminder is due when its time has arrived and its moment is still relevant. A delayed run still delivers
+ * late, but each notice expires when the next one takes over, so nobody is told "tomorrow" an hour before the start:
+ * 24h until 12 hours before, 1h until 20 minutes before, 10m until the start.
+ */
 export function isStillRelevant(type: NotificationType, c: ContestLite | null, now: number): boolean {
   if (!c) return true;
-  if (type === 'CONTEST_24H' || type === 'CONTEST_1H' || type === 'CONTEST_10M') return now < c.startAt;
+  if (type === 'CONTEST_24H') return now < c.startAt - 12 * 60 * MIN;
+  if (type === 'CONTEST_1H') return now < c.startAt - 20 * MIN;
+  if (type === 'CONTEST_10M') return now < c.startAt;
   return true;
 }

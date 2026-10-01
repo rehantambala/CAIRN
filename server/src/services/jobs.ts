@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto';
 import { pool, tx } from '../db/pool.js';
 import { closePastDays, ensureObjective } from './derived.js';
 import { deliverDue, scheduleAll, scheduleMissed } from './notify.js';
@@ -63,10 +64,37 @@ export async function runJob(name: JobName, now = Date.now()): Promise<Record<st
   }
 }
 
+/**
+ * Cross-process mutual exclusion for jobs. The in-process scheduler and the external cron can fire at the same
+ * moment, possibly on different instances; a lease row in the database lets only one run of a given job proceed.
+ * A lease left by a crashed run expires after 15 minutes. No connection is held while the job runs.
+ */
+const LEASE = "interval '15 minutes'";
+export async function withJobLock<T>(name: string, fn: () => Promise<T>): Promise<T | { skipped: 'ALREADY_RUNNING' }> {
+  const key = `job-lock:${name}`;
+  const owner = randomUUID();
+  const got = await pool.query(
+    `insert into kv(key, value, updated_at) values ($1, $2, now())
+     on conflict (key) do update set value = excluded.value, updated_at = now() where kv.updated_at < now() - ${LEASE}
+     returning key`, [key, JSON.stringify({ owner })]);
+  if (!got.rowCount) return { skipped: 'ALREADY_RUNNING' };
+  try { return await fn(); }
+  finally { await pool.query(`delete from kv where key = $1 and value->>'owner' = $2`, [key, owner]).catch(() => {}); }
+}
+
+/** Runs one job under its lease. Used by both the scheduler and the cron endpoint. */
+export async function runJobExclusive(name: JobName, now = Date.now()): Promise<Record<string, unknown>> {
+  return (await withJobLock(name, () => runJob(name, now))) as Record<string, unknown>;
+}
+
 export async function runAll(now = Date.now()) {
   const out: Record<string, unknown> = {};
   for (const n of JOB_NAMES) {
-    try { out[n] = await runJob(n, now); } catch (e: any) { out[n] = { error: String(e?.message ?? e) }; }
+    // Failures are summarised by job; details go to the server log, never to the caller.
+    try { out[n] = await runJobExclusive(n, now); } catch (e: any) {
+      console.error(JSON.stringify({ ts: new Date().toISOString(), level: 'error', msg: 'job failed', job: n, error: String(e?.message ?? e) }));
+      out[n] = { error: 'FAILED' };
+    }
   }
   return out;
 }

@@ -21,7 +21,8 @@ export interface StatRow {
   lastError: string | null;
 }
 
-export type Connection = 'NOT_CONNECTED' | 'PENDING_VERIFICATION' | 'LIVE' | 'SYNCED' | 'STALE' | 'ERROR' | 'MANUAL' | 'UNAVAILABLE';
+/** What the person sees for each platform. There is no "live": figures are as fresh as the last synchronisation. */
+export type Connection = 'NOT_CONNECTED' | 'PENDING_VERIFICATION' | 'CONNECTED' | 'SYNCED' | 'STALE' | 'ERROR' | 'MANUAL' | 'UNAVAILABLE';
 
 /**
  * One honest word for a profile. LIVE only when the source verified it within ten minutes; MANUAL when figures
@@ -32,9 +33,9 @@ export function connectionOf(s: StatRow, capability: 'AUTOMATIC' | 'IMPORT' | 'M
   if (!s.username) return s.known && s.sourceStatus !== 'ERROR' ? 'MANUAL' : 'NOT_CONNECTED';
   if (capability !== 'AUTOMATIC') return capability === 'IMPORT' && !s.known ? 'UNAVAILABLE' : 'MANUAL';
   if (s.connectionStatus === 'ERROR' || s.sourceStatus === 'ERROR') return 'ERROR';
-  if (s.sourceStatus === 'LIVE') return 'LIVE';
   if (s.sourceStatus === 'STALE') return 'STALE';
-  return s.lastSyncedAt ? 'SYNCED' : 'PENDING_VERIFICATION';
+  // Verified with the platform; SYNCED once figures have actually been read.
+  return s.lastSyncedAt ? 'SYNCED' : 'CONNECTED';
 }
 
 const STALE_AFTER_MS: Record<Platform, number> = {

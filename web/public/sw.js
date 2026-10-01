@@ -1,5 +1,5 @@
 /* CAIRN service worker: offline shell + push with deep links. */
-const CACHE = 'cairn-shell-v2';
+const CACHE = 'cairn-shell-v3';
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (e) => {
@@ -43,7 +43,9 @@ self.addEventListener('push', (e) => {
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const target = (e.notification.data && e.notification.data.url) || '/';
+  // Only paths on this site are opened; a notification can never send the person elsewhere.
+  const raw = (e.notification.data && e.notification.data.url) || '/';
+  const target = typeof raw === 'string' && raw.startsWith('/') && !raw.startsWith('//') ? raw : '/';
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {

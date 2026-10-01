@@ -15,18 +15,44 @@ export interface ContestInput {
   source?: string;
 }
 
-/** Upsert by (platform, external id). Returns the row id and whether it was new. */
+const PLATFORM_HOSTS: Record<Platform, RegExp> = {
+  codeforces: /^(www\.)?codeforces\.com$/,
+  leetcode: /^(www\.)?leetcode\.(com|cn)$/,
+  codechef: /^(www\.)?codechef\.com$/,
+  hackerrank: /^(www\.)?hackerrank\.com$/,
+  interviewbit: /^(www\.)?interviewbit\.com$/,
+  smartinterviews: /^(www\.)?(hive\.)?smartinterviews\.in$/,
+};
+
+/**
+ * Contest links come from external listings and end up as clickable links. Only https links on the contest's own
+ * platform are kept; anything else (javascript:, data:, another host) is dropped rather than shown.
+ */
+export function safePlatformUrl(platform: Platform, raw: string | null | undefined): string | null {
+  if (!raw || raw.length > 500) return null;
+  try {
+    const u = new URL(raw);
+    if (u.protocol !== 'https:' || u.username || u.password) return null;
+    return PLATFORM_HOSTS[platform]?.test(u.hostname.toLowerCase()) ? u.toString() : null;
+  } catch { return null; }
+}
+
+/** External text is bounded and stripped of control characters before it is stored or shown. */
+export const cleanTitle = (t: string) => t.replace(/[\u0000-\u001f\u007f-\u009f\u202a-\u202e\u2066-\u2069]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 160) || 'Untitled contest';
+
+/** Upsert by (platform, external id). Returns the row id and whether it was new. A listed contest is never cancelled. */
 export async function upsertContest(db: Db, userId: string | null, c: ContestInput): Promise<{ id: string; isNew: boolean }> {
   const r = await db.query(
     `insert into contests(platform, external_contest_id, title, start_at, end_at, registration_url, contest_url, rated, source, last_verified_at)
      values ($1,$2,$3,$4,$5,$6,$7,$8,$9, case when $9::text is not null then now() end)
      on conflict (platform, external_contest_id) do update set
-       title = excluded.title, start_at = excluded.start_at, end_at = excluded.end_at,
+       title = excluded.title, start_at = excluded.start_at, end_at = excluded.end_at, cancelled_at = null,
        registration_url = coalesce(excluded.registration_url, contests.registration_url),
        contest_url = coalesce(excluded.contest_url, contests.contest_url), rated = excluded.rated,
        source = coalesce(excluded.source, contests.source), last_verified_at = coalesce(excluded.last_verified_at, contests.last_verified_at)
      returning id, (xmax = 0) as inserted`,
-    [c.platform, c.externalContestId, c.title, c.startAt, c.endAt, c.registrationUrl ?? null, c.contestUrl ?? null, c.rated ?? true, c.source ?? null],
+    [c.platform, String(c.externalContestId).slice(0, 200), cleanTitle(c.title), c.startAt, c.endAt,
+      safePlatformUrl(c.platform, c.registrationUrl), safePlatformUrl(c.platform, c.contestUrl), c.rated ?? true, c.source ?? null],
   );
   const { id, inserted } = r.rows[0];
   if (inserted && userId) await recordEvent(db, userId, 'CONTEST_DISCOVERED', c.platform, id, { title: c.title, startAt: c.startAt });
