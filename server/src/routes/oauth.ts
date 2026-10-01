@@ -31,7 +31,7 @@ const PROVIDERS: Record<Provider, { authorize: string; token: string; scope: str
 export const providerHttp = {
   async postForm(url: string, body: Record<string, string>): Promise<any> {
     const res = await fetch(url, { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body), signal: AbortSignal.timeout(15_000) });
-    if (!res.ok) throw new Error(`token HTTP ${res.status}`);
+    if (!res.ok) throw new Error(`token HTTP ${res.status}: ${(await res.text()).slice(0, 300)}`);
     return res.json();
   },
   async getJson(url: string, token: string): Promise<any> {
