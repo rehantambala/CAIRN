@@ -25,15 +25,25 @@ function ring(k: number, cx: number, cy: number) {
   return d + 'Z';
 }
 
+/** Three composited layers; each holds a static SVG so the browser animates only a texture. */
+const LAYERS = [0, 1, 2];
+
 export function Contours({ className = '' }: { className?: string }) {
-  const rings = useMemo(() => Array.from({ length: 13 }, (_, k) => ({
-    d: ring(k, 800, 450), dur: 26 + ((k * 7) % 19), dir: k % 2 ? 1 : -1, op: Math.max(0.05, 0.21 - k * 0.012),
+  const layers = useMemo(() => LAYERS.map((l) => ({
+    l,
+    paths: Array.from({ length: 13 }, (_, k) => k).filter((k) => k % 3 === l).map((k) => ({
+      d: ring(k, 800, 450), op: Math.max(0.05, 0.21 - k * 0.012),
+    })),
   })), []);
   return (
-    <svg className={`contours ${className}`} viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
-      {rings.map((r, i) => (
-        <path key={i} d={r.d} className="contours__r" style={{ ['--dur' as string]: `${r.dur}s`, ['--dir' as string]: r.dir, opacity: r.op }} />
+    <div className={`contours ${className}`} aria-hidden="true">
+      {layers.map(({ l, paths }) => (
+        <div key={l} className={`contours__l contours__l--${l}`}>
+          <svg viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" focusable="false">
+            {paths.map((r, i) => <path key={i} d={r.d} style={{ opacity: r.op }} />)}
+          </svg>
+        </div>
       ))}
-    </svg>
+    </div>
   );
 }

@@ -14,6 +14,7 @@ import { getUser, loadScore, recordEvent } from '../services/state.js';
 import { runJob } from '../services/jobs.js';
 import { syncPlatform } from '../services/sync.js';
 import { rebaseline } from '../services/baseline.js';
+import { connectAndSync, discoverFromGitHub, extractHandles } from '../services/accounts.js';
 import {
   analyticsView, awardsView, calendarView, contestsView, dayDetail, overview, problemsView,
   scoreView, simulate, sourcesView, trajectoryView,
@@ -158,6 +159,23 @@ api.put('/accounts/:platform', wrap(async (req, res) => {
   res.json({ ok: true });
 }));
 
+/**
+ * One step instead of three forms: paste any profile links (or let the signed-in GitHub profile be read) and every
+ * recognised handle is saved and synchronised. Handles already chosen are kept unless `replace` is given.
+ */
+api.post('/accounts/discover', wrap(async (req, res) => {
+  const b = z.object({ text: z.string().max(5000).optional(), github: z.boolean().optional(), replace: z.boolean().optional() }).parse(req.body ?? {});
+  let handles = extractHandles([b.text]);
+  if (b.github) {
+    const gh = (await pool.query('select github_login from users where id=$1', [uid(req)])).rows[0]?.github_login as string | null;
+    if (!gh) return res.status(409).json({ error: 'NO_GITHUB', message: 'Sign in with GitHub once, and your public profile can be read.' });
+    handles = { ...(await discoverFromGitHub(gh)), ...handles };
+  }
+  if (Object.keys(handles).length === 0) return res.json({ found: {}, saved: [], reports: [], message: 'No LeetCode, CodeChef or Codeforces profile address was recognised.' });
+  const r = await connectAndSync(uid(req), handles, !!b.replace);
+  res.json({ found: handles, ...r });
+}));
+
 const importSchema = z.object({
   platform: platformSchema,
   problemsSolved: z.number().int().min(0).max(100000).optional(),
@@ -213,7 +231,8 @@ api.get('/settings', wrap(async (req, res) => {
   const user = await getUser(pool, uid(req));
   const loaded = await loadScore(pool, uid(req));
   res.json({
-    user, sources: sourcesView(loaded.stats),
+    user: { ...user, githubLogin: (await pool.query('select github_login from users where id=$1', [uid(req)])).rows[0]?.github_login ?? null },
+    sources: sourcesView(loaded.stats),
     push: { configured: pushConfigured(), publicKey: config.vapidPublic || null },
     dev: !config.isProd,
   });

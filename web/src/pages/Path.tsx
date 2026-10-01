@@ -34,7 +34,7 @@ export function Path() {
 
   return (
     <>
-      <PageHead title="Path" sub={`Your score is ${fmt(t.current)}. ${fmt(t.remaining)} points remain to the target.`}>
+      <PageHead title="Trajectory" sub={`Your score is ${fmt(t.current)}. ${fmt(t.remaining)} points remain to the target.`}>
         <div style={{ marginTop: 'var(--space-8)' }}>
           <GoalBar current={t.current} target={t.target} milestones={d.milestones.map((m) => m.value)} />
         </div>
@@ -95,7 +95,7 @@ export function Path() {
             ? `${Math.round(d.reachability.fixedShareOfCurrent * 100)} per cent of your score rests on Smart Interviews, InterviewBit and HackerRank.`
             : 'Ratings carry the greatest effect, because the rating term is squared.'}
         </h2>
-        <p className="body" style={{ marginTop: 'var(--space-4)' }}>{BRAND} records those three but does not model them, so you enter their figures in Settings.</p>
+        <p className="body" style={{ marginTop: 'var(--space-4)' }}>{BRAND} records those three but does not model them, so you enter their figures in Preferences.</p>
         <ul className="ledger" style={{ marginTop: 'var(--space-8)' }}>
           {(an.data?.contribution ?? []).map((c) => (
             <li key={c.label} className="ledger__row">

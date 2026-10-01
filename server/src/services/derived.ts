@@ -2,7 +2,7 @@ import type { Db } from '../db/pool.js';
 import { AWARD_DEFINITIONS, newAwards, type AwardMetrics } from '../domain/awards.js';
 import { dayState } from '../domain/calendar.js';
 import { computeConsistency, type ContestRecord, type DayRecord } from '../domain/consistency.js';
-import { generateObjective, solvedKey, type ContestCandidate, type Objective, type ObjectiveState, type PoolProblem } from '../domain/objective.js';
+import { generateObjective, selectProblems, solvedKey, suggestionGuidance, type ContestCandidate, type Objective, type ObjectiveState, type PoolProblem } from '../domain/objective.js';
 import { computeScore } from '../domain/score.js';
 import { addDays, dayEnd, dayKey, dayStart, hourMinute } from '../domain/time.js';
 import { computeTrajectory, type Snapshot } from '../domain/trajectory.js';
@@ -181,6 +181,29 @@ export async function ensureObjective(db: Db, userId: string, now: number): Prom
 }
 
 /**
+ * Suggestions are a view of the pool, not a promise made at midnight. They are recomputed for every open
+ * quota item so that a pool that grew, or a problem solved elsewhere, is always reflected, and a list can
+ * never remain empty merely because it was generated early.
+ */
+export async function refreshSuggestions(db: Db, userId: string, obj: ObjectiveRow) {
+  const open = obj.items.filter((i) => i.type === 'PROBLEM_QUOTA' && i.platform && !i.completed);
+  if (open.length === 0) return;
+  const [pool, solved, stats] = [await loadPool(db), await loadSolvedSet(db, userId), (await loadScore(db, userId)).inputs];
+  for (const it of open) {
+    const p = it.platform as 'leetcode' | 'codechef' | 'codeforces';
+    if (!(p in stats)) continue;
+    const rating = stats[p].rating;
+    const next = selectProblems(pool, solved, p, rating, it.quota + 2, obj.date);
+    const same = next.length === it.suggestions.length && next.every((n, k) => n.externalId === it.suggestions[k].externalId);
+    if (same) continue;
+    await db.query(
+      'update daily_objective_items set suggestions_json=$2 where id=$1',
+      [it.id, JSON.stringify({ problems: next, practiceUrl: it.practiceUrl, guidance: suggestionGuidance(next.length, it.quota, rating) })],
+    );
+  }
+}
+
+/**
  * Recompute item completion for a day from verified data. Idempotent and derived:
  * quota items count solved problems first accepted within the local day; contest items
  * look for a participation. Returns true when the day just became COMPLETE.
@@ -190,6 +213,7 @@ export async function refreshObjective(db: Db, userId: string, date: string, now
   const obj = (await loadObjectives(db, userId, date, date))[0];
   if (!obj) return { justCompleted: false };
   const from = new Date(dayStart(date, user.timezone)), to = new Date(dayEnd(date, user.timezone));
+  if (obj.status === 'ACTIVE') await refreshSuggestions(db, userId, obj);
 
   for (const it of obj.items) {
     if (it.type === 'PROBLEM_QUOTA' && it.platform) {

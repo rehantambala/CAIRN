@@ -5,6 +5,7 @@ import { config } from './config.js';
 import { pool } from './db/pool.js';
 import { api } from './routes/api.js';
 import { authRouter } from './routes/auth.js';
+import { oauthRouter } from './routes/oauth.js';
 import { jobsRouter } from './routes/jobs.js';
 
 export function createApp() {
@@ -17,6 +18,7 @@ export function createApp() {
   app.get('/api/health', async (_req, res) => {
     try { await pool.query('select 1'); res.json({ ok: true }); } catch { res.status(503).json({ ok: false }); }
   });
+  app.use('/api/auth', oauthRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/jobs', jobsRouter);
   app.use('/api', api);

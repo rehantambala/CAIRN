@@ -8,6 +8,7 @@ import { ErrorBanner, Loading, Section, SourceChip, Empty } from '../components/
 import { GoalBar, NextBlock, ScoreAnnouncer, ScoreFigure } from '../components/score';
 import { TodayItem } from '../components/TodayItem';
 import { Contours } from '../components/Contours';
+import { Yield } from '../components/Yield';
 
 interface CalDay { date: string; state: DayState; verified: boolean }
 interface Cal { today: string; days: CalDay[] }
@@ -15,7 +16,7 @@ interface Cal { today: string; days: CalDay[] }
 /** The freshest automatic reading, stated plainly. Never implies liveness the data does not have. */
 function readingLine(sources: Overview['sources'], now: number) {
   const auto = sources.filter((s) => s.capability === 'AUTOMATIC' && s.username && s.updatedAt && s.status !== 'ERROR');
-  if (auto.length === 0) return 'No platform is connected. Connect one in Settings to read your figures automatically.';
+  if (auto.length === 0) return 'No platform is connected. Connect one in Preferences to read your figures automatically.';
   const newest = auto.reduce((a, b) => (new Date(a.updatedAt!).getTime() > new Date(b.updatedAt!).getTime() ? a : b));
   return `${auto.length} of 3 platforms read automatically. Latest reading ${ago(newest.updatedAt!, now)}.`;
 }
@@ -86,12 +87,11 @@ export function Today() {
       <Section kicker={dayDone ? 'Today · complete' : 'Today’s objective'} id="today-list">
         <div className="tday-head">
           <h2 className="statement">{o.today.isRest ? 'A scheduled rest day.' : dayDone ? 'Every required item is complete.' : `${required.length - done} required ${required.length - done === 1 ? 'item remains' : 'items remain'}.`}</h2>
-          {o.today.targetScoreDelta > 0 && !o.today.isRest && (
-            <p className="body">{dayDone
-              ? <>Today’s work was worth <span className="strong">{signed(o.today.targetScoreDelta)}</span> points, all of them certain. Rating changes cannot be promised, so they are excluded from this figure.</>
-              : <>Completing these items adds <span className="strong">{signed(o.today.targetScoreDelta)}</span> points, all of them certain. Rating changes cannot be promised, so they are excluded from this figure.</>}</p>
+          {dayDone && o.today.targetScoreDelta > 0 && (
+            <p className="body">Today’s work was worth <span className="strong">{signed(o.today.targetScoreDelta)}</span> points, all of them certain. Rating changes cannot be promised, so they are excluded from this figure.</p>
           )}
         </div>
+        {!dayDone && !o.today.isRest && <Yield brief={o.brief} tz={o.user.timezone} now={now} streak={o.consistency.consecutiveComplete} />}
         {o.today.items.length === 0
           ? <Empty title="No work scheduled">No work is required and no contest falls today. Add problems to the pool or synchronise a platform.</Empty>
           : <ol className="qlist">{o.today.items.map((it, i) => <TodayItem key={it.id} item={it} index={i} onChange={reload} auto={autoSet.has(it.platform ?? '')} current={!it.completed && i === o.today.items.findIndex((x) => !x.completed)} />)}</ol>}
@@ -127,8 +127,8 @@ export function Today() {
             <p className="body" style={{ marginTop: 'var(--space-4)' }}>{statusLine(t.status, t.historyDays)}</p>
           </div>
           <div className="btn-row" style={{ alignSelf: 'end' }}>
-            <Link to="/path" className="btn">Open the path</Link>
-            <Link to="/log" className="btn btn--ghost">{o.awards.length > 0 ? `${o.awards.length} ${o.awards.length === 1 ? 'milestone' : 'milestones'} reached` : 'Open the log'}</Link>
+            <Link to="/path" className="btn">Open the trajectory</Link>
+            <Link to="/log" className="btn btn--ghost">{o.awards.length > 0 ? `${o.awards.length} ${o.awards.length === 1 ? 'milestone' : 'milestones'} reached` : 'Open the record'}</Link>
           </div>
         </div>
       </Section>

@@ -4,7 +4,7 @@ import { post } from '../api';
 import { BRAND } from '../brand';
 import { Mark } from './Mark';
 
-const NAV = [['/', 'Today'], ['/path', 'Path'], ['/contests', 'Contests'], ['/log', 'Log'], ['/settings', 'Settings']] as const;
+const NAV = [['/', 'Briefing'], ['/path', 'Trajectory'], ['/contests', 'Fixtures'], ['/log', 'Record'], ['/settings', 'Preferences']] as const;
 
 export function Shell({ onLogout }: { onLogout: () => void }) {
   const loc = useLocation();
@@ -24,7 +24,7 @@ export function Shell({ onLogout }: { onLogout: () => void }) {
         </div>
       </header>
 
-      <main id="main" className="main" tabIndex={-1}><Outlet /></main>
+      <main id="main" className="main" tabIndex={-1}><div key={loc.pathname} className="route"><Outlet /></div></main>
 
       <nav className="dock" aria-label="Primary (mobile)">
         {NAV.map(([to, label]) => <NavLink key={to} to={to} end={to === '/'}>{label}</NavLink>)}

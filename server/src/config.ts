@@ -12,6 +12,19 @@ export const config = {
   webOrigin: process.env.WEB_ORIGIN ?? 'http://localhost:5173',
   clistUser: process.env.CLIST_USERNAME ?? '',
   clistKey: process.env.CLIST_API_KEY ?? '',
+  // Sign-in with GitHub or Google is permitted for the owner only. Without these, the buttons do not appear.
+  githubClientId: process.env.GITHUB_CLIENT_ID ?? '',
+  githubClientSecret: process.env.GITHUB_CLIENT_SECRET ?? '',
+  ownerGithub: process.env.OWNER_GITHUB ?? '',
+  googleClientId: process.env.GOOGLE_CLIENT_ID ?? '',
+  googleClientSecret: process.env.GOOGLE_CLIENT_SECRET ?? '',
+  ownerGoogleEmail: process.env.OWNER_GOOGLE_EMAIL ?? '',
+  // Optional: handles supplied by configuration, so that no one has to type them into the interface.
+  handles: {
+    leetcode: process.env.LEETCODE_HANDLE ?? '',
+    codechef: process.env.CODECHEF_HANDLE ?? '',
+    codeforces: process.env.CODEFORCES_HANDLE ?? '',
+  } as Record<string, string>,
 };
 
 if (config.isProd) {

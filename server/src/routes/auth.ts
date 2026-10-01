@@ -7,9 +7,9 @@ import { z } from 'zod';
 import { config } from '../config.js';
 import { pool } from '../db/pool.js';
 
-const COOKIE = 'vector_session';
+export const COOKIE = 'vector_session';
 
-function readCookie(req: Request, name: string): string | null {
+export function readCookie(req: Request, name: string): string | null {
   const raw = req.headers.cookie;
   if (!raw) return null;
   for (const part of raw.split(';')) {
@@ -33,6 +33,11 @@ export function requireAuth(req: Request, res: Response, next: NextFunction) {
   }
 }
 
+export function issueSession(res: Response, userId: string) {
+  const token = jwt.sign({ sub: userId }, config.jwtSecret, { expiresIn: '30d' });
+  res.cookie(COOKIE, token, { httpOnly: true, sameSite: 'lax', secure: config.isProd, maxAge: 30 * 86_400_000, path: '/' });
+}
+
 export const authRouter = Router();
 
 const loginLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 10, standardHeaders: true, legacyHeaders: false });
@@ -43,10 +48,7 @@ authRouter.post('/login', loginLimiter, async (req, res) => {
   const u = (await pool.query('select id, password_hash from users where email=$1', [body.data.email.toLowerCase()])).rows[0];
   const ok = u && (await bcrypt.compare(body.data.password, u.password_hash));
   if (!ok) return res.status(401).json({ error: 'INVALID_CREDENTIALS' });
-  const token = jwt.sign({ sub: u.id }, config.jwtSecret, { expiresIn: '30d' });
-  res.cookie(COOKIE, token, {
-    httpOnly: true, sameSite: 'lax', secure: config.isProd, maxAge: 30 * 86_400_000, path: '/',
-  });
+  issueSession(res, u.id);
   res.json({ ok: true });
 });
 

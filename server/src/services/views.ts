@@ -5,7 +5,8 @@ import { marginal, reachability, computeScore, remaining, type ScoreInputs } fro
 import { addDays, dayKey, dayStart } from '../domain/time.js';
 import { PLATFORM_LABEL, RATED_PLATFORMS, type Platform } from '../domain/types.js';
 import { ADAPTERS } from '../adapters/index.js';
-import { awardMetrics, consistencyFor, loadContestCandidates, loadSnapshots } from './derived.js';
+import { awardMetrics, consistencyFor, loadContestCandidates, loadPool, loadSnapshots, loadSolvedSet } from './derived.js';
+import { buildBrief, contestPlan } from '../domain/brief.js';
 import { contestState } from './contests.js';
 import { computeToday, computeTrajectoryFor } from './today.js';
 import { getUser, loadScore } from './state.js';
@@ -86,7 +87,12 @@ export async function overview(db: Db, userId: string, now: number) {
   const contests = await loadContestCandidates(db, userId, now);
   const reach = reachability(loaded.inputs, { leetcode: 1570, codechef: 1400, codeforces: 920 });
   const next = MILESTONES.find((m) => m > loaded.score.overall) ?? null;
+  const brief = buildBrief({
+    items: today.objective.items, scoreNow: loaded.score.overall, milestone: next, now,
+    tz: user.timezone, date: today.objective.date, isRest: today.objective.isRest,
+  });
   return {
+    brief,
     user: { displayName: user.displayName, timezone: user.timezone, targetScore: user.targetScore, targetDate: user.targetDate },
     now: new Date(now).toISOString(),
     date: dayKey(now, user.timezone),
@@ -118,6 +124,8 @@ export async function contestsView(db: Db, userId: string, now: number) {
       order by c.start_at`, [userId, new Date(now), new Date(now - 30 * 86_400_000)],
   )).rows;
   const linked = new Set((await db.query(`select platform from platform_accounts where user_id=$1 and username <> ''`, [userId])).rows.map((r) => r.platform as string));
+  const [pool, solved, inputs] = [await loadPool(db), await loadSolvedSet(db, userId), (await loadScore(db, userId)).inputs];
+  const date = dayKey(now, user.timezone);
   const view = rows.map((r) => {
     const startAt = (r.start_at as Date).getTime(), endAt = (r.end_at as Date).getTime();
     return {
@@ -127,6 +135,12 @@ export async function contestsView(db: Db, userId: string, now: number) {
       committed: r.committed, prepMinutes: r.prep_minutes ?? 30, attended: !!r.attended,
       ratingDelta: r.rating_delta, state: contestState({ startAt, endAt }, now, r.committed, !!r.attended),
       manualOk: ADAPTERS[r.platform as Platform].capability !== 'AUTOMATIC' || !linked.has(r.platform),
+      plan: r.rated && endAt > now
+        ? contestPlan({
+            platform: r.platform as Platform, startAt, prepMinutes: r.prep_minutes ?? 30, pool, solved, date,
+            rating: (RATED_PLATFORMS as readonly string[]).includes(r.platform) ? inputs[r.platform as (typeof RATED_PLATFORMS)[number]].rating : null,
+          })
+        : null,
     };
   });
   return { timezone: user.timezone, now: new Date(now).toISOString(), contests: view };

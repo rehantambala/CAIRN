@@ -73,6 +73,10 @@ const PRACTICE_URL: Record<RatedPlatform, string> = {
   codechef: 'https://www.codechef.com/practice',
   codeforces: 'https://codeforces.com/problemset',
 };
+export function suggestionGuidance(found: number, quota: number, rating: number): string | null {
+  if (found >= quota) return null;
+  return `The pool holds ${found} unsolved suggestion${found === 1 ? '' : 's'}. Select unsolved problems rated about ${rating}–${rating + 200}.`;
+}
 const WORD_DIFFICULTY: Record<string, number> = { easy: 1100, medium: 1500, hard: 1900 };
 
 export const solvedKey = (platform: Platform, id: string) => `${platform}:${id}`;
@@ -214,7 +218,7 @@ export function generateObjective(state: ObjectiveState): Objective {
       reasons.push(`A rating of ${state.scoreInputs[p].rating + 25} would add ${Math.round(ratingEffect(p, state.scoreInputs[p].rating, state.scoreInputs[p].rating + 25))} points. That is a projection, not a certainty.`);
     }
     const suggestions = selectProblems(state.pool, state.solved, p, state.scoreInputs[p].rating, q + 2, state.date);
-    const lo = state.scoreInputs[p].rating, hi = lo + 200;
+    const lo = state.scoreInputs[p].rating;
     items.push({
       type: 'PROBLEM_QUOTA', platform: p, contestId: null,
       title: `${PLATFORM_LABEL[p]}`,
@@ -222,9 +226,7 @@ export function generateObjective(state: ObjectiveState): Objective {
       required: true, quota: q, minutes: q * MINUTES_PER_PROBLEM[p], points: q * m.perProblem,
       suggestions,
       practiceUrl: PRACTICE_URL[p],
-      guidance: suggestions.length >= q
-        ? null
-        : `The pool holds ${suggestions.length} unsolved suggestion${suggestions.length === 1 ? '' : 's'}. Select unsolved problems rated about ${lo}–${hi}.`,
+      guidance: suggestionGuidance(suggestions.length, q, lo),
     });
   }
 

@@ -1,5 +1,5 @@
-import { useState, type FormEvent } from 'react';
-import { post, put, type Platform, type Source } from '../api';
+import { useEffect, useState, type FormEvent } from 'react';
+import { get, post, put, type Platform, type Source } from '../api';
 import { BRAND } from '../brand';
 import { ago } from '../format';
 import { useFetch, useNow } from '../hooks';
@@ -7,7 +7,7 @@ import { ErrorBanner, Loading, PageHead, Section, SourceChip, useAnnouncer } fro
 
 interface Payload {
   user: { displayName: string; timezone: string; targetScore: number; targetDate: string | null; dailyMinutes: number; email: string };
-  sources: Source[];
+  sources: Source[]; githubLogin: string | null;
   push: { configured: boolean; publicKey: string | null };
   dev: boolean;
 }
@@ -27,9 +27,10 @@ export function Settings() {
 
   return (
     <>
-      <PageHead title="Settings" sub="Your target, your sources and your reminders. No platform password is ever stored." />
+      <PageHead title="Preferences" sub="Your target, your accounts and your reminders. No platform password is ever stored." />
       {region}
       <Section kicker="Target" label="Goal"><Profile data={data} onSaved={() => { say('Saved.'); reload(); }} /></Section>
+      <Section kicker="Accounts" label="Accounts"><Connect data={data} onDone={() => { say('Accounts updated.'); reload(); }} /></Section>
       <Section kicker="Sources" tone="deep" label="Sources">
         <div className="stack-lg">
           {data.sources.map((s) => <SourceForm key={s.platform} s={s} now={now} onDone={() => { say(`${s.label} updated.`); reload(); }} />)}
@@ -38,6 +39,50 @@ export function Settings() {
       <Section kicker="Reminders" label="Reminders"><Notifications push={data.push} /></Section>
       {data.dev && <Section kicker="Development" tone="ink" label="Development tools"><Dev onDone={reload} /></Section>}
     </>
+  );
+}
+
+const AUTO = ['leetcode', 'codechef', 'codeforces'];
+
+/** One step: sign in with GitHub or paste profile addresses; handles are found, saved and read at once. */
+function Connect({ data, onDone }: { data: Payload; onDone: () => void }) {
+  const [text, setText] = useState('');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [out, setOut] = useState<string | null>(null);
+  const [prov, setProv] = useState<{ github: boolean; google: boolean } | null>(null);
+  useEffect(() => { void get<{ github: boolean; google: boolean }>('/auth/providers').then(setProv).catch(() => setProv(null)); }, []);
+  const linked = data.sources.filter((s) => AUTO.includes(s.platform));
+
+  async function discover(kind: 'github' | 'text') {
+    setBusy(kind); setOut(null);
+    try {
+      const r = await post<{ found: Record<string, string>; saved: string[]; reports: { ok: boolean; message: string; platform: string }[]; message?: string }>('/accounts/discover', kind === 'github' ? { github: true } : { text });
+      const n = r.saved.length;
+      setOut(r.message ?? `${n} ${n === 1 ? 'account' : 'accounts'} connected and read${r.reports.some((x) => !x.ok) ? '; one or more could not be read and will be retried automatically' : ''}.`);
+      if (n) { setText(''); onDone(); }
+    } catch (e: any) { setOut(e.message); } finally { setBusy(null); }
+  }
+
+  return (
+    <div className="stack">
+      <p className="lead">Connection is automatic once an account is known. Your figures are then read every few hours without further action.</p>
+      <ul className="conn" aria-label="Connection status">
+        {linked.map((s) => <li key={s.platform} className={`conn__i${s.username ? ' is-on' : ''}`}><span className="strong">{s.label}</span><span className="small">{s.username ? s.username : 'Not connected'}</span></li>)}
+      </ul>
+      <div className="btn-row">
+        {prov?.github && !data.githubLogin && <a className="btn" href="/api/auth/github/start">Continue with GitHub</a>}
+        {data.githubLogin && <button className="btn" disabled={busy !== null} aria-busy={busy === 'github'} onClick={() => discover('github')}>{busy === 'github' ? 'Reading profile' : `Find my accounts from ${data.githubLogin}`}</button>}
+      </div>
+      {data.githubLogin && <p className="small">Your public GitHub profile is searched for LeetCode, CodeChef and Codeforces addresses in the biography, website, linked accounts and profile README. Nothing is written to GitHub.</p>}
+      <div className="field">
+        <label htmlFor="disc">Profile addresses</label>
+        <textarea id="disc" className="textarea" value={text} onChange={(e) => setText(e.target.value)} aria-describedby="disch" placeholder="https://leetcode.com/u/…  https://www.codechef.com/users/…  https://codeforces.com/profile/…" />
+        <span id="disch" className="hint">Paste any of the three addresses, in any order. The handle is extracted, saved and synchronised in one step.</span>
+      </div>
+      <div className="btn-row"><button className="btn btn--ghost" disabled={busy !== null || !text.trim()} aria-busy={busy === 'text'} onClick={() => discover('text')}>{busy === 'text' ? 'Connecting' : 'Connect'}</button></div>
+      {out && <p className="meta" role="status">{out}</p>}
+      <p className="small">HackerRank, InterviewBit and Smart Interviews publish no reliable public interface; their figures are entered below.</p>
+    </div>
   );
 }
 

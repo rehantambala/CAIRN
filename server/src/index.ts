@@ -7,11 +7,13 @@ import { migrate } from './db/migrate.js';
 import { createApp } from './app.js';
 import { pool } from './db/pool.js';
 import { seedOwner, loadProblemPool } from './db/seed.js';
+import { refreshPool } from './services/pool.js';
 
 await migrate();
 // Idempotent first-boot seed (free hosts have no shell): owner + baseline + problem pool.
-await seedOwner(pool);
+// The pool must exist before the first objective is generated, or that day would store no problem links.
 await loadProblemPool(pool);
+await seedOwner(pool);
 const app = createApp();
 
 // In production the API can also serve the built frontend, so one free service hosts both.
@@ -22,3 +24,5 @@ if (existsSync(dist)) {
 }
 
 app.listen(config.port, () => console.log(`CAIRN api on :${config.port}`));
+// Extend the pool from the platforms' own lists, in the background; failure is harmless.
+void refreshPool(pool).catch(() => {});

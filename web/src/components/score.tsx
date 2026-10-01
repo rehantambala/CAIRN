@@ -63,8 +63,8 @@ export function NextBlock({ next, items, delta, now, fetchedAt }: { next: Next; 
         <h2 className="display fig-2xl next__done">{doneHeadline(delta, true)}</h2>
         <p className="lead">{next.reason}</p>
         <div className="btn-row" style={{ marginTop: 'var(--space-8)' }}>
-          <Link to="/log" className="btn btn--big">Open the log</Link>
-          <Link to="/path" className="btn btn--ghost btn--big">Open the path</Link>
+          <Link to="/log" className="btn btn--big">Open the record</Link>
+          <Link to="/path" className="btn btn--ghost btn--big">Open the trajectory</Link>
         </div>
       </div>
     );

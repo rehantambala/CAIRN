@@ -57,7 +57,7 @@ export function Log() {
 
   return (
     <>
-      <PageHead title="Log" sub={`${streakLine(streak)} ${doneDays} ${doneDays === 1 ? 'day was' : 'days were'} completed in ${monthTitle(cal.month).split(' ')[0]}.`} />
+      <PageHead title="Record" sub={`${streakLine(streak)} ${doneDays} ${doneDays === 1 ? 'day was' : 'days were'} completed in ${monthTitle(cal.month).split(' ')[0]}.`} />
 
       <Section kicker={monthTitle(cal.month)} label="Calendar">
         <div className="cal__head">

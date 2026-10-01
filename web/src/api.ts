@@ -54,7 +54,18 @@ export interface Objective { id: string; date: string; status: string; isRest: b
 export interface Next { kind: string; label: string; title: string; detail: string; reason: string; target: string | null; href: string; startsInMs: number | null; contestId: string | null }
 export interface Consistency { executionRate: number | null; weeklyCompletion: number | null; contestAttendance: number | null; plannedSessions: number; completedSessions: number; consecutiveComplete: number; bottleneck: { window: string; misses: number } | null; recommendation: string | null }
 export interface ContestCand { id: string; platform: Platform; title: string; startAt: number; endAt: number; rated: boolean; committed: boolean; registrationUrl: string | null; contestUrl: string | null }
+export interface BriefStep { platform: Platform | null; label: string; kind: 'PROBLEMS' | 'CONTEST'; remaining: number; points: number; minutes: number; scoreAfter: number; perHour: number }
+export interface Brief {
+  scoreNow: number; scoreAfter: number; gain: number; minutes: number; steps: BriefStep[];
+  milestone: number | null; toMilestone: number | null; toMilestoneAfter: number | null;
+  daysAtThisRate: number | null; dailyPoints: number; dayEndsAt: number; mostEfficient: { label: string; perHour: number } | null;
+}
+export interface ContestPlan {
+  perContest: number; rating: number; ratingPlus25: number; attempt: number; warmupBeginsAt: number;
+  warmup: { count: number; minutes: number; from: number; to: number; problems: Suggestion[] };
+}
 export interface Overview {
+  brief: Brief;
   user: { displayName: string; timezone: string; targetScore: number; targetDate: string | null }; now: string; date: string;
   score: ScoreView; target: number; remaining: number; trajectory: Trajectory;
   milestones: { list: number[]; current: number; next: number | null };
@@ -65,5 +76,5 @@ export interface Overview {
 export interface ContestRow {
   id: string; platform: Platform; label: string; title: string; startAt: string; endAt: string; registrationUrl: string | null; contestUrl: string | null;
   rated: boolean; committed: boolean; prepMinutes: number; attended: boolean; ratingDelta: number | null;
-  state: 'UPCOMING' | 'STARTING_SOON' | 'LIVE' | 'FINISHED' | 'MISSED' | 'ATTENDED'; manualOk: boolean;
+  state: 'UPCOMING' | 'STARTING_SOON' | 'LIVE' | 'FINISHED' | 'MISSED' | 'ATTENDED'; manualOk: boolean; plan: ContestPlan | null;
 }

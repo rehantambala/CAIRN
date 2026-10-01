@@ -20,3 +20,17 @@ Jobs: `contests` (discovery), `sync` (Codeforces), `rollover` (close past days, 
 
 ## 5. Connect sources
 Settings: add your Codeforces handle and Sync. LeetCode, CodeChef, Smart Interviews, InterviewBit and HackerRank take imported or manual values; no passwords are stored and no logins are automated.
+
+## Automatic connection (GitHub and Google)
+
+Sign-in and account discovery need no manual saving once the following are set on the server.
+
+| Variable | Purpose |
+| --- | --- |
+| `GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET` | GitHub OAuth app. Callback URL: `https://<host>/api/auth/github/callback` |
+| `OWNER_GITHUB` | The only GitHub login permitted to sign in |
+| `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | Google OAuth client. Callback URL: `https://<host>/api/auth/google/callback` |
+| `OWNER_GOOGLE_EMAIL` | The only verified Google address permitted to sign in |
+| `LEETCODE_HANDLE`, `CODECHEF_HANDLE`, `CODEFORCES_HANDLE` | Optional fixed handles, applied at start-up and by the scheduled job |
+
+LeetCode, CodeChef and Codeforces offer no third-party sign-in, so their handles are discovered from the public GitHub profile (biography, website, linked accounts, profile README) or from pasted profile addresses in Preferences. HackerRank, InterviewBit and Smart Interviews remain manual.

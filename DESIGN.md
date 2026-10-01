@@ -58,3 +58,9 @@ Motion is ambient and never decorative noise: the loader builds the cairn stone 
 ## Live data
 
 LeetCode and CodeChef are read from public profiles and Codeforces from its official interface. Each synchronisation replaces the stored baseline with the platform's own totals, then recalculates through the single score engine. A failed read keeps the stored figures and marks the source as an error. Smart Interviews, InterviewBit and HackerRank publish nothing this application may read, so their contributions are entered by the owner.
+
+## Motion without flicker (revision)
+The contour field is three composited layers, each a static SVG animated by transform only, so an idle page performs no layout or paint (traced: 32 layouts and 48 paints in four seconds before; none after). The pulse uses a pseudo-element scale and opacity rather than box-shadow. First render waits up to 1.2 s for the typefaces. Routes fade in once per navigation.
+
+## Yield and fixtures
+Briefing states, per platform, the problems required, the points added and the score afterwards, the latest start time, and the consequence for the next milestone. Fixtures states the next contest, the attempt count, preparation start and warm-up problems. Only certain points are stated as such; rating effects are labelled projections.

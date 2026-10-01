@@ -24,7 +24,7 @@ export function Contests() {
 
   return (
     <>
-      <PageHead title="Contests" sub={`Rated contests are the only route to rating movement. Times are shown in ${tz}.`} />
+      <PageHead title="Fixtures" sub={`Rated contests are the only route to rating movement. Times are shown in ${tz}.`} />
       {upcoming.length === 0 && (
         <Section>
           <Empty title="No upcoming contests">
@@ -86,12 +86,39 @@ function Lead({ c, tz, now, onChange }: { c: ContestRow; tz: string; now: number
       <p className="body" style={{ marginTop: 'var(--space-3)' }}>{tzDay(c.startAt, tz)} · {tzTime(c.startAt, tz)}–{tzTime(c.endAt, tz)}</p>
       {left > 0 && <p className="lead" style={{ marginTop: 'var(--space-6)' }}>Begins in</p>}
       {left > 0 && <p className="display fig-hero mark lead-c__count" aria-label={`Begins in ${countdown(left)}`}>{countdown(left)}</p>}
+      {c.plan && <Plan c={c} tz={tz} now={now} />}
       <p className="lead" style={{ marginTop: 'var(--space-5)' }}>
         {c.committed
           ? `You are committed. Preparation begins ${c.prepMinutes} minutes beforehand, and reminders will be sent.`
           : 'Committing now schedules preparation and reminders at 24 hours, 1 hour and 10 minutes before the start. A rated attempt is the only route to rating movement.'}
       </p>
       <div style={{ marginTop: 'var(--space-8)' }}><Actions c={c} now={now} onChange={onChange} /></div>
+    </div>
+  );
+}
+
+function Plan({ c, tz, now }: { c: ContestRow; tz: string; now: number }) {
+  const p = c.plan!;
+  const warmLeft = p.warmupBeginsAt - now;
+  return (
+    <div className="plan">
+      <p className="plan__line">
+        Attempt <span className="strong">{p.attempt} problems</span>. Each rated {c.label} contest adds <span className="strong">{p.perContest} points</span> on attendance alone; a further 25 rating points would add about {p.ratingPlus25}, which is a projection and not a certainty.
+      </p>
+      {p.warmup.problems.length > 0 && (
+        <>
+          <p className="plan__line">
+            {warmLeft > 0
+              ? <>Preparation begins at <span className="strong">{tzTime(p.warmupBeginsAt, tz)}</span> on {tzDay(p.warmupBeginsAt, tz)}: {p.warmup.count} problems rated {p.warmup.from}–{p.warmup.to}, about {p.warmup.minutes} minutes.</>
+              : <>Complete these {p.warmup.count} problems before the start, about {p.warmup.minutes} minutes.</>}
+          </p>
+          <ul className="plan__list">
+            {p.warmup.problems.map((s) => (
+              <li key={s.externalId}><a className="link-arrow" href={s.url} target="_blank" rel="noreferrer noopener">{s.title}<span className="sr-only"> (opens in a new tab)</span></a>{s.difficulty ? <span className="small"> · {s.difficulty}</span> : null}</li>
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
