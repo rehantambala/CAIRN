@@ -14,6 +14,27 @@ export interface StatRow {
   baseAsOf: Date;
   username: string | null;
   lastSyncedAt: Date | null;
+  /** the user has this platform: figures entered or a profile connected */
+  known: boolean;
+  connectionStatus: string;
+  verifiedAt: Date | null;
+  lastError: string | null;
+}
+
+export type Connection = 'NOT_CONNECTED' | 'PENDING_VERIFICATION' | 'LIVE' | 'SYNCED' | 'STALE' | 'ERROR' | 'MANUAL' | 'UNAVAILABLE';
+
+/**
+ * One honest word for a profile. LIVE only when the source verified it within ten minutes; MANUAL when figures
+ * are entered by the person; UNAVAILABLE when a handle is held but the source cannot be read on this server.
+ */
+export function connectionOf(s: StatRow, capability: 'AUTOMATIC' | 'IMPORT' | 'MANUAL'): Connection {
+  if (s.connectionStatus === 'PENDING') return 'PENDING_VERIFICATION';
+  if (!s.username) return s.known && s.sourceStatus !== 'ERROR' ? 'MANUAL' : 'NOT_CONNECTED';
+  if (capability !== 'AUTOMATIC') return capability === 'IMPORT' && !s.known ? 'UNAVAILABLE' : 'MANUAL';
+  if (s.connectionStatus === 'ERROR' || s.sourceStatus === 'ERROR') return 'ERROR';
+  if (s.sourceStatus === 'LIVE') return 'LIVE';
+  if (s.sourceStatus === 'STALE') return 'STALE';
+  return s.lastSyncedAt ? 'SYNCED' : 'PENDING_VERIFICATION';
 }
 
 const STALE_AFTER_MS: Record<Platform, number> = {
@@ -44,12 +65,14 @@ export async function loadStats(db: Db, userId: string, now = Date.now()): Promi
                                  join contests c on c.id = cp.contest_id
                                 where cp.user_id = s.user_id and cp.platform = s.platform
                                   and cp.participated and c.end_at > s.base_as_of) as contests,
-            a.username, a.last_synced_at
+            1 as has_stats
        from platform_stats s
-       left join platform_accounts a on a.user_id = s.user_id and a.platform = s.platform
       where s.user_id = $1`,
     [userId],
   );
+  const accounts = new Map<string, any>((await db.query(
+    'select platform, username, last_synced_at, connection_status, verified_at, last_error from platform_accounts where user_id=$1', [userId],
+  )).rows.map((r) => [r.platform, r]));
   const byPlatform = new Map<string, any>(rows.map((r) => [r.platform, r]));
   return ALL_PLATFORMS.map((p) => {
     const r = byPlatform.get(p);
@@ -64,8 +87,12 @@ export async function loadStats(db: Db, userId: string, now = Date.now()): Promi
       sourceNote: r?.source_note ?? null,
       lastUpdatedAt: last,
       baseAsOf: r?.base_as_of ?? new Date(0),
-      username: r?.username ?? null,
-      lastSyncedAt: r?.last_synced_at ?? null,
+      username: accounts.get(p)?.username || null,
+      lastSyncedAt: accounts.get(p)?.last_synced_at ?? null,
+      known: !!r,
+      connectionStatus: (accounts.get(p)?.connection_status ?? 'DISCONNECTED') as string,
+      verifiedAt: accounts.get(p)?.verified_at ?? null,
+      lastError: accounts.get(p)?.last_error ?? null,
     };
   });
 }
@@ -108,3 +135,6 @@ export async function recordEvent(
 }
 
 export { RATED_PLATFORMS };
+
+export const knownRated = (stats: StatRow[]): RatedPlatform[] =>
+  RATED_PLATFORMS.filter((p) => stats.find((s) => s.platform === p)?.known);

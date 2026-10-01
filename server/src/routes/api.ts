@@ -9,12 +9,13 @@ import { DEFAULT_TZ } from '../domain/time.js';
 import { ensureObjective } from '../services/derived.js';
 import { recordParticipation, recordRating } from '../services/contests.js';
 import { nextKey, processAccepted, refreshAfterChange } from '../services/pipeline.js';
-import { pushConfigured } from '../services/notify.js';
+import { pushConfigured, scheduleAll } from '../services/notify.js';
 import { getUser, loadScore, recordEvent } from '../services/state.js';
-import { runJob } from '../services/jobs.js';
 import { syncPlatform } from '../services/sync.js';
 import { rebaseline } from '../services/baseline.js';
-import { connectAndSync, discoverFromGitHub, extractHandles } from '../services/accounts.js';
+import { connectProfile, detectFromGitHub, disconnectProfile, extractHandles, getDetected, type ConnectResult } from '../services/accounts.js';
+import { identitiesOf } from '../services/identity.js';
+import { strategistFor } from '../services/strategist.js';
 import {
   analyticsView, awardsView, calendarView, contestsView, dayDetail, overview, problemsView,
   scoreView, simulate, sourcesView, trajectoryView,
@@ -44,6 +45,8 @@ api.get('/today', wrap(async (req, res) => {
   res.json({ date: o.date, objective: o.today, next: o.next, trajectory: o.trajectory, contests: o.upcomingContests });
 }));
 
+/** Advice only; computed from this user's context. Never writes source data. */
+api.get('/strategist', wrap(async (req, res) => { res.json(await strategistFor(pool, uid(req), Date.now())); }));
 api.get('/contests', wrap(async (req, res) => { res.json(await contestsView(pool, uid(req), Date.now())); }));
 api.get('/problems', wrap(async (req, res) => { res.json(await problemsView(pool, uid(req), Date.now())); }));
 api.get('/trajectory', wrap(async (req, res) => { res.json(await trajectoryView(pool, uid(req), Date.now())); }));
@@ -86,8 +89,8 @@ api.post('/refresh', wrap(async (req, res) => {
     await closePastDays(c, uid(req), now);
     await ensureObjective(c, uid(req), now);
     await refreshAfterChange(c, uid(req), now, 'refresh');
+    await scheduleAll(c, uid(req), now);
   });
-  await runJob('notify', now);
   res.json({ ok: true });
 }));
 
@@ -105,7 +108,8 @@ api.post('/contests/:id/commit', wrap(async (req, res) => {
     await recordEvent(cl, uid(req), 'REMINDER_SCHEDULED', null, id, { commitment: true });
     await applyCommitmentToToday(cl, uid(req), id, true, Date.now());
   });
-  await runJob('notify');
+  // This user's reminders only, scheduled at once rather than at the next tick.
+  await tx((cl) => scheduleAll(cl, uid(req), Date.now()));
   res.json({ ok: true, message: 'Your commitment is recorded, and reminders are scheduled.' });
 }));
 
@@ -148,32 +152,32 @@ api.post('/sync/:platform', wrap(async (req, res) => {
   res.json(await syncPlatform(uid(req), platform));
 }));
 
-api.put('/accounts/:platform', wrap(async (req, res) => {
+/** Connect a coding profile: verified with the platform where it can be, recorded as stated where it cannot. */
+api.post('/profiles/:platform', wrap(async (req, res) => {
   const platform = platformSchema.parse(req.params.platform);
-  const { username } = z.object({ username: z.string().trim().max(80).regex(/^[A-Za-z0-9_.-]*$/) }).parse(req.body);
-  await pool.query(
-    `insert into platform_accounts(user_id, platform, username, connection_status) values ($1,$2,$3,$4)
-     on conflict (user_id, platform) do update set username=excluded.username, connection_status=excluded.connection_status, updated_at=now()`,
-    [uid(req), platform, username, username ? 'CONNECTED' : 'DISCONNECTED'],
-  );
+  const { handle } = z.object({ handle: z.string().trim().min(1).max(80) }).parse(req.body);
+  const r = await connectProfile(pool, uid(req), platform, handle);
+  res.status(r.ok ? 200 : r.state === 'NOT_FOUND' ? 404 : 400).json(r);
+}));
+
+/** Disconnect: synchronisation stops; history and figures are kept. */
+api.delete('/profiles/:platform', wrap(async (req, res) => {
+  await disconnectProfile(pool, uid(req), platformSchema.parse(req.params.platform));
   res.json({ ok: true });
 }));
 
-/**
- * One step instead of three forms: paste any profile links (or let the signed-in GitHub profile be read) and every
- * recognised handle is saved and synchronised. Handles already chosen are kept unless `replace` is given.
- */
-api.post('/accounts/discover', wrap(async (req, res) => {
-  const b = z.object({ text: z.string().max(5000).optional(), github: z.boolean().optional(), replace: z.boolean().optional() }).parse(req.body ?? {});
-  let handles = extractHandles([b.text]);
-  if (b.github) {
-    const gh = (await pool.query('select github_login from users where id=$1', [uid(req)])).rows[0]?.github_login as string | null;
-    if (!gh) return res.status(409).json({ error: 'NO_GITHUB', message: 'Sign in with GitHub once, and your public profile can be read.' });
-    handles = { ...(await discoverFromGitHub(gh)), ...handles };
-  }
-  if (Object.keys(handles).length === 0) return res.json({ found: {}, saved: [], reports: [], message: 'No LeetCode, CodeChef or Codeforces profile address was recognised.' });
-  const r = await connectAndSync(uid(req), handles, !!b.replace);
-  res.json({ found: handles, ...r });
+/** Paste any profile addresses: each recognised handle is verified and connected. Nothing is assumed. */
+api.post('/profiles/discover', wrap(async (req, res) => {
+  const { text } = z.object({ text: z.string().max(5000) }).parse(req.body ?? {});
+  const handles = extractHandles([text]);
+  const results: (ConnectResult & { platform: string })[] = [];
+  for (const [platform, h] of Object.entries(handles) as [Platform, string][]) results.push({ platform, ...(await connectProfile(pool, uid(req), platform, h)) });
+  res.json({ results, message: results.length ? null : 'No LeetCode, CodeChef or Codeforces profile address was recognised.' });
+}));
+
+/** Reads the signed-in user's public GitHub profile and suggests handles; nothing is connected. */
+api.post('/profiles/detect', wrap(async (req, res) => {
+  res.json({ detected: await detectFromGitHub(pool, uid(req)) });
 }));
 
 const importSchema = z.object({
@@ -230,8 +234,13 @@ api.post('/codeforces/derive-from-history', wrap(async (req, res) => {
 api.get('/settings', wrap(async (req, res) => {
   const user = await getUser(pool, uid(req));
   const loaded = await loadScore(pool, uid(req));
+  const u = (await pool.query('select github_login, avatar_url, remind_enabled, remind_24h, remind_1h, remind_10m, password_hash is not null as has_password from users where id=$1', [uid(req)])).rows[0];
   res.json({
-    user: { ...user, githubLogin: (await pool.query('select github_login from users where id=$1', [uid(req)])).rows[0]?.github_login ?? null },
+    user: { ...user, githubLogin: u.github_login ?? null, avatarUrl: u.avatar_url ?? null },
+    reminders: { enabled: u.remind_enabled, h24: u.remind_24h, h1: u.remind_1h, m10: u.remind_10m },
+    identities: await identitiesOf(pool, uid(req)),
+    hasPassword: u.has_password,
+    detected: await getDetected(pool, uid(req)),
     sources: sourcesView(loaded.stats),
     push: { configured: pushConfigured(), publicKey: config.vapidPublic || null },
     dev: !config.isProd,
@@ -245,7 +254,18 @@ api.put('/settings', wrap(async (req, res) => {
     targetScore: z.number().int().min(1000).max(1_000_000).optional(),
     targetDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
     dailyMinutes: z.number().int().min(30).max(480).optional(),
+    reminders: z.object({ enabled: z.boolean(), h24: z.boolean(), h1: z.boolean(), m10: z.boolean() }).optional(),
   }).parse(req.body);
+  if (b.reminders) {
+    await pool.query('update users set remind_enabled=$2, remind_24h=$3, remind_1h=$4, remind_10m=$5, updated_at=now() where id=$1',
+      [uid(req), b.reminders.enabled, b.reminders.h24, b.reminders.h1, b.reminders.m10]);
+    // Pending reminders that are no longer wanted are withdrawn; nothing already sent is touched.
+    await pool.query(
+      `update notifications set status='SKIPPED', payload_json = payload_json || '{"reason":"PREFERENCE"}'
+        where user_id=$1 and status='PENDING' and (
+          (type='CONTEST_24H' and not ($2 and $3)) or (type='CONTEST_1H' and not ($2 and $4)) or (type='CONTEST_10M' and not ($2 and $5)))`,
+      [uid(req), b.reminders.enabled, b.reminders.h24, b.reminders.h1, b.reminders.m10]);
+  }
   await pool.query(
     `update users set display_name=coalesce($2,display_name), timezone=coalesce($3,timezone), target_score=coalesce($4,target_score),
        daily_minutes=coalesce($6,daily_minutes), target_date = case when $5::boolean then $7::date else target_date end, updated_at=now() where id=$1`,
@@ -258,7 +278,7 @@ api.post('/push/subscribe', wrap(async (req, res) => {
   const b = z.object({ endpoint: z.string().url().max(1000), keys: z.object({ p256dh: z.string(), auth: z.string() }) }).parse(req.body);
   await pool.query(
     `insert into push_subscriptions(user_id, endpoint, p256dh, auth) values ($1,$2,$3,$4)
-     on conflict (endpoint) do update set p256dh=excluded.p256dh, auth=excluded.auth`, [uid(req), b.endpoint, b.keys.p256dh, b.keys.auth],
+     on conflict (endpoint) do update set user_id=excluded.user_id, p256dh=excluded.p256dh, auth=excluded.auth`, [uid(req), b.endpoint, b.keys.p256dh, b.keys.auth],
   );
   res.json({ ok: true });
 }));

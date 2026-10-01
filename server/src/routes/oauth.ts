@@ -1,105 +1,116 @@
-import { randomBytes } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
 import { Router } from 'express';
 import type { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import { config } from '../config.js';
-import { pool } from '../db/pool.js';
-import { connectAndSync, discoverFromGitHub } from '../services/accounts.js';
-import { issueSession, readCookie } from './auth.js';
+import { tx } from '../db/pool.js';
+import { resolveIdentity, type Provider, type ProviderProfile } from '../services/identity.js';
+import { issueSession, readCookie, sessionUserId } from './auth.js';
 
 /**
- * Sign-in with GitHub or Google, for the owner alone. This is a single-owner instrument: a verified identity
- * is accepted only if it is the configured owner's, and otherwise refused, so that configuring a provider can
- * never open the application to anyone else.
+ * "Continue with Google" and "Continue with GitHub" for anyone. Authorisation-code flow with a signed state
+ * cookie and PKCE (S256); secrets stay on the server. Scopes are the minimum needed to identify a person.
  */
 export const oauthRouter = Router();
 const STATE_COOKIE = 'cairn_oauth';
 
-const enabled = {
-  github: () => !!(config.githubClientId && config.githubClientSecret && config.ownerGithub),
-  google: () => !!(config.googleClientId && config.googleClientSecret && (config.ownerGoogleEmail || config.ownerEmail)),
+const PROVIDERS: Record<Provider, { authorize: string; token: string; scope: string; enabled: () => boolean; clientId: () => string; secret: () => string; redirect: () => string }> = {
+  github: {
+    authorize: 'https://github.com/login/oauth/authorize', token: 'https://github.com/login/oauth/access_token', scope: 'read:user',
+    enabled: () => !!(config.githubClientId && config.githubClientSecret), clientId: () => config.githubClientId, secret: () => config.githubClientSecret,
+    redirect: () => config.githubRedirectUri,
+  },
+  google: {
+    authorize: 'https://accounts.google.com/o/oauth2/v2/auth', token: 'https://oauth2.googleapis.com/token', scope: 'openid email profile',
+    enabled: () => !!(config.googleClientId && config.googleClientSecret), clientId: () => config.googleClientId, secret: () => config.googleClientSecret,
+    redirect: () => config.googleRedirectUri,
+  },
 };
 
-const origin = (req: Request) => `${req.protocol}://${req.get('host')}`;
-const callback = (req: Request, p: 'github' | 'google') => `${origin(req)}/api/auth/${p}/callback`;
+/** Provider HTTP, replaceable in tests. */
+export const providerHttp = {
+  async postForm(url: string, body: Record<string, string>): Promise<any> {
+    const res = await fetch(url, { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body), signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) throw new Error(`token HTTP ${res.status}`);
+    return res.json();
+  },
+  async getJson(url: string, token: string): Promise<any> {
+    const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'User-Agent': 'cairn' }, signal: AbortSignal.timeout(15_000) });
+    if (!res.ok) throw new Error(`profile HTTP ${res.status}`);
+    return res.json();
+  },
+};
 
-oauthRouter.get('/providers', (_req, res) => res.json({ github: enabled.github(), google: enabled.google() }));
+const b64url = (b: Buffer) => b.toString('base64url');
+const callbackFor = (req: Request, p: Provider) =>
+  PROVIDERS[p].redirect() || `${config.publicUrl || `${req.protocol}://${req.get('host')}`}/api/auth/${p}/callback`;
 
-function start(provider: 'github' | 'google') {
+oauthRouter.get('/providers', (_req, res) => res.json({ github: PROVIDERS.github.enabled(), google: PROVIDERS.google.enabled() }));
+
+function start(provider: Provider) {
   return (req: Request, res: Response) => {
-    if (!enabled[provider]()) return res.redirect('/?auth=unavailable');
-    const state = randomBytes(16).toString('hex');
-    res.cookie(STATE_COOKIE, jwt.sign({ provider, state }, config.jwtSecret, { expiresIn: '10m' }), { httpOnly: true, sameSite: 'lax', secure: config.isProd, maxAge: 600_000, path: '/api/auth' });
-    const q = new URLSearchParams(provider === 'github'
-      ? { client_id: config.githubClientId, redirect_uri: callback(req, 'github'), state, scope: 'read:user', allow_signup: 'false' }
-      : { client_id: config.googleClientId, redirect_uri: callback(req, 'google'), state, scope: 'openid email', response_type: 'code', prompt: 'select_account' });
-    res.redirect(`${provider === 'github' ? 'https://github.com/login/oauth/authorize' : 'https://accounts.google.com/o/oauth2/v2/auth'}?${q}`);
+    const P = PROVIDERS[provider];
+    if (!P.enabled()) return res.redirect('/?auth=unavailable');
+    const state = b64url(randomBytes(18));
+    const verifier = b64url(randomBytes(32));
+    const link = req.query.link === '1';
+    const tz = typeof req.query.tz === 'string' ? req.query.tz.slice(0, 64) : null;
+    res.cookie(STATE_COOKIE, jwt.sign({ provider, state, verifier, link, tz }, config.jwtSecret, { expiresIn: '10m' }),
+      { httpOnly: true, sameSite: 'lax', secure: config.isProd, maxAge: 600_000, path: '/api/auth' });
+    const q = new URLSearchParams({
+      client_id: P.clientId(), redirect_uri: callbackFor(req, provider), state, scope: P.scope,
+      code_challenge: b64url(createHash('sha256').update(verifier).digest()), code_challenge_method: 'S256',
+      ...(provider === 'google' ? { response_type: 'code', prompt: 'select_account' } : {}),
+    });
+    res.redirect(`${P.authorize}?${q}`);
   };
 }
-oauthRouter.get('/github/start', start('github'));
-oauthRouter.get('/google/start', start('google'));
 
-async function postForm(url: string, body: Record<string, string>) {
-  const res = await fetch(url, { method: 'POST', headers: { Accept: 'application/json', 'Content-Type': 'application/x-www-form-urlencoded' }, body: new URLSearchParams(body), signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`token HTTP ${res.status}`);
-  return (await res.json()) as any;
-}
-async function getAuthed(url: string, token: string) {
-  const res = await fetch(url, { headers: { Authorization: `Bearer ${token}`, Accept: 'application/json', 'User-Agent': 'cairn-personal' }, signal: AbortSignal.timeout(15_000) });
-  if (!res.ok) throw new Error(`profile HTTP ${res.status}`);
-  return (await res.json()) as any;
-}
-
-function stateOk(req: Request, provider: string): boolean {
-  const raw = readCookie(req, STATE_COOKIE);
-  if (!raw || typeof req.query.state !== 'string') return false;
-  try {
-    const p = jwt.verify(raw, config.jwtSecret) as { provider: string; state: string };
-    return p.provider === provider && p.state === req.query.state;
-  } catch { return false; }
+async function profileFor(provider: Provider, code: string, verifier: string, redirectUri: string): Promise<ProviderProfile | null> {
+  const P = PROVIDERS[provider];
+  const t = await providerHttp.postForm(P.token, {
+    client_id: P.clientId(), client_secret: P.secret(), code, redirect_uri: redirectUri, code_verifier: verifier,
+    ...(provider === 'google' ? { grant_type: 'authorization_code' } : {}),
+  });
+  if (!t?.access_token) return null;
+  if (provider === 'github') {
+    const u = await providerHttp.getJson('https://api.github.com/user', t.access_token);
+    if (typeof u?.id !== 'number' && typeof u?.id !== 'string') return null;
+    return { provider, providerUserId: String(u.id), email: typeof u.email === 'string' ? u.email : null, emailVerified: false,
+      login: typeof u.login === 'string' ? u.login : null, name: typeof u.name === 'string' ? u.name : null, avatarUrl: typeof u.avatar_url === 'string' ? u.avatar_url : null };
+  }
+  const u = await providerHttp.getJson('https://openidconnect.googleapis.com/v1/userinfo', t.access_token);
+  if (typeof u?.sub !== 'string') return null;
+  return { provider, providerUserId: u.sub, email: typeof u.email === 'string' ? u.email : null, emailVerified: u.email_verified === true,
+    login: null, name: typeof u.name === 'string' ? u.name : null, avatarUrl: typeof u.picture === 'string' ? u.picture : null };
 }
 
-async function ownerId(): Promise<string | null> {
-  return (await pool.query('select id from users where email=$1', [config.ownerEmail.toLowerCase()])).rows[0]?.id ?? null;
-}
-
-function finish(provider: 'github' | 'google') {
+function finish(provider: Provider) {
   return async (req: Request, res: Response) => {
     res.clearCookie(STATE_COOKIE, { path: '/api/auth' });
     try {
-      if (!enabled[provider]() || !stateOk(req, provider) || typeof req.query.code !== 'string') return res.redirect('/?auth=failed');
-      let allowed = false;
-      let githubLogin: string | null = null;
-      if (provider === 'github') {
-        const t = await postForm('https://github.com/login/oauth/access_token', {
-          client_id: config.githubClientId, client_secret: config.githubClientSecret, code: req.query.code, redirect_uri: callback(req, 'github'),
-        });
-        if (!t.access_token) return res.redirect('/?auth=failed');
-        const u = await getAuthed('https://api.github.com/user', t.access_token);
-        githubLogin = typeof u.login === 'string' ? u.login : null;
-        allowed = !!githubLogin && githubLogin.toLowerCase() === config.ownerGithub.toLowerCase();
-      } else {
-        const t = await postForm('https://oauth2.googleapis.com/token', {
-          client_id: config.googleClientId, client_secret: config.googleClientSecret, code: req.query.code, redirect_uri: callback(req, 'google'), grant_type: 'authorization_code',
-        });
-        if (!t.access_token) return res.redirect('/?auth=failed');
-        const u = await getAuthed('https://openidconnect.googleapis.com/v1/userinfo', t.access_token);
-        const want = (config.ownerGoogleEmail || config.ownerEmail).toLowerCase();
-        allowed = u.email_verified === true && typeof u.email === 'string' && u.email.toLowerCase() === want;
-      }
-      if (!allowed) return res.redirect('/?auth=denied');
-      const id = await ownerId();
-      if (!id) return res.redirect('/?auth=failed');
-      if (githubLogin) await pool.query('update users set github_login=$2, updated_at=now() where id=$1', [id, githubLogin]);
-      issueSession(res, id);
-      // Find and connect the platform accounts in the background; the person is not kept waiting.
-      if (githubLogin) void discoverFromGitHub(githubLogin).then((h) => connectAndSync(id, h)).catch(() => {});
-      res.redirect('/');
+      if (!PROVIDERS[provider].enabled()) return res.redirect('/?auth=unavailable');
+      if (typeof req.query.error === 'string') return res.redirect('/?auth=cancelled');
+      const raw = readCookie(req, STATE_COOKIE);
+      let st: { provider: string; state: string; verifier: string; link: boolean; tz: string | null };
+      try { st = jwt.verify(raw ?? '', config.jwtSecret) as typeof st; } catch { return res.redirect('/?auth=failed'); }
+      if (st.provider !== provider || st.state !== req.query.state || typeof req.query.code !== 'string') return res.redirect('/?auth=failed');
+
+      const profile = await profileFor(provider, req.query.code, st.verifier, callbackFor(req, provider));
+      if (!profile) return res.redirect('/?auth=failed');
+      const current = st.link ? sessionUserId(req) : null;
+      const r = await tx((c) => resolveIdentity(c, profile, current, st.tz));
+      if (r.outcome === 'CONFLICT') return res.redirect(current ? '/settings?auth=conflict' : '/?auth=conflict');
+      issueSession(res, r.userId!);
+      res.redirect(r.outcome === 'LINKED' ? '/settings?auth=linked' : r.outcome === 'CREATED' ? '/?welcome=1' : '/');
     } catch (e) {
       console.error('oauth', provider, (e as Error).message);
       res.redirect('/?auth=failed');
     }
   };
 }
-oauthRouter.get('/github/callback', finish('github'));
-oauthRouter.get('/google/callback', finish('google'));
+
+for (const p of ['github', 'google'] as const) {
+  oauthRouter.get(`/${p}/start`, start(p));
+  oauthRouter.get(`/${p}/callback`, finish(p));
+}

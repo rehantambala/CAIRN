@@ -112,5 +112,12 @@ export function computeTrajectory(opts: {
   };
 }
 
-/** Milestones used by the 25K visual; the first unreached one is "next". */
-export const MILESTONES = [14_000, 16_000, 18_000, 20_000, 22_500, 25_000] as const;
+/**
+ * Milestones as fractions of the user's own objective (for 25,000: 2K, 5K, 9K, 14K, 16K, 18K, 20K, 22.5K, 25K),
+ * rounded to the nearest 500. The first unreached one is "next".
+ */
+const MILESTONE_FRACTIONS = [0.08, 0.2, 0.36, 0.56, 0.64, 0.72, 0.8, 0.9, 1];
+export function milestonesFor(target: number): number[] {
+  const out = MILESTONE_FRACTIONS.map((f) => (f === 1 ? target : Math.max(500, Math.round((target * f) / 500) * 500)));
+  return [...new Set(out)].sort((a, b) => a - b);
+}

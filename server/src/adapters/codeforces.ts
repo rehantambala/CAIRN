@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { NormalizedContest, NormalizedSubmission, PlatformAdapter, Profile, RatingPoint } from './types.js';
+import { ProfileNotFound } from './types.js';
 
 const API = 'https://codeforces.com/api';
 
@@ -47,7 +48,7 @@ const defaultFetch: Fetcher = async (url) => {
   const wait = lastCall + 2100 - Date.now();
   if (wait > 0) await new Promise((r) => setTimeout(r, wait));
   lastCall = Date.now();
-  const res = await fetch(url, { headers: { 'User-Agent': 'vector-personal/1.0' }, signal: AbortSignal.timeout(15_000) });
+  const res = await fetch(url, { headers: { 'User-Agent': 'cairn/1.0' }, signal: AbortSignal.timeout(15_000) });
   if (!res.ok && res.status !== 400) throw new Error(`Codeforces HTTP ${res.status}`);
   return res.json();
 };
@@ -87,7 +88,11 @@ export function normalizeContest(raw: z.infer<typeof contestSchema>): Normalized
 export function createCodeforcesAdapter(fetchJson: Fetcher = defaultFetch): PlatformAdapter {
   async function call<T extends z.ZodTypeAny>(path: string, schema: T): Promise<z.infer<T>> {
     const env = envelope.parse(await fetchJson(`${API}/${path}`));
-    if (env.status !== 'OK') throw new Error(`Codeforces: ${env.comment ?? 'request failed'}`);
+    if (env.status !== 'OK') {
+      const handle = /handles?:?\s*User with handle (\S+) not found/i.exec(env.comment ?? '')?.[1];
+      if (handle) throw new ProfileNotFound('codeforces', handle);
+      throw new Error(`Codeforces: ${env.comment ?? 'request failed'}`);
+    }
     return schema.parse(env.result);
   }
   return {

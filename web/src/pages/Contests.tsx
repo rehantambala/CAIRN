@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { del, post, type ContestRow } from '../api';
-import { countdown, tzDay, tzTime } from '../format';
+import { del, post, type ContestRow, type SourceHealth } from '../api';
+import { ago, countdown, tzDay, tzTime } from '../format';
 import { useFetch, useNow } from '../hooks';
 import { ErrorBanner, Loading, PageHead, Empty, Section, useAnnouncer } from '../components/ui';
 
-interface Payload { timezone: string; now: string; contests: ContestRow[] }
+interface Payload { timezone: string; now: string; contests: ContestRow[]; sources: SourceHealth[] }
 
 const STATE_WORD: Record<ContestRow['state'], string> = { UPCOMING: 'Upcoming', STARTING_SOON: 'Starting soon', LIVE: 'In progress', FINISHED: 'Finished', MISSED: 'Not attended', ATTENDED: 'Attended' };
 
@@ -28,7 +28,7 @@ export function Contests() {
       {upcoming.length === 0 && (
         <Section>
           <Empty title="No upcoming contests">
-            Contests are read from Codeforces, LeetCode and CodeChef every few hours. If this list is empty, the sources could not be reached; it will be retried automatically.
+            No upcoming contest is currently listed by the sources below. The listings are read again every two hours.
           </Empty>
         </Section>
       )}
@@ -38,6 +38,7 @@ export function Contests() {
           <ol className="tl">{rest.map((c) => <Row key={c.id} c={c} tz={tz} now={now} onChange={reload} />)}</ol>
         </Section>
       )}
+      {data.sources.length > 0 && <Sources list={data.sources} now={now} />}
       {past.length > 0 && (
         <Section kicker="Concluded" tone="deep">
           <ol className="tl">{past.map((c) => <Row key={c.id} c={c} tz={tz} now={now} onChange={reload} />)}</ol>
@@ -89,8 +90,8 @@ function Lead({ c, tz, now, onChange }: { c: ContestRow; tz: string; now: number
       {c.plan && <Plan c={c} tz={tz} now={now} />}
       <p className="lead" style={{ marginTop: 'var(--space-5)' }}>
         {c.committed
-          ? `You are committed. Preparation begins ${c.prepMinutes} minutes beforehand, and reminders will be sent.`
-          : 'Committing now schedules preparation and reminders at 24 hours, 1 hour and 10 minutes before the start. A rated attempt is the only route to rating movement.'}
+          ? `You are committed. Preparation begins ${c.prepMinutes} minutes beforehand. ${reminderLine(c) ?? ''}`
+          : `Committing schedules preparation and reminders at 1 hour and 10 minutes before the start, in addition to the 24-hour notice. ${c.rated ? 'A rated attempt is the only route to rating movement.' : 'This contest is unrated.'}`}
       </p>
       <div style={{ marginTop: 'var(--space-8)' }}><Actions c={c} now={now} onChange={onChange} /></div>
     </div>
@@ -123,6 +124,41 @@ function Plan({ c, tz, now }: { c: ContestRow; tz: string; now: number }) {
   );
 }
 
+const REMINDER_WORD = { CONTEST_24H: '24 hours', CONTEST_1H: '1 hour', CONTEST_10M: '10 minutes' } as const;
+
+/** This user's own reminders for a contest, in plain words. */
+function reminderLine(c: ContestRow): string | null {
+  if (new Date(c.startAt).getTime() <= Date.now()) return null;
+  const pending = c.reminders.filter((r) => r.status === 'PENDING').map((r) => REMINDER_WORD[r.type]);
+  if (pending.length === 0) return c.committed ? 'No reminder remains before the start.' : null;
+  const words = pending.length === 1 ? pending[0] : `${pending.slice(0, -1).join(', ')} and ${pending[pending.length - 1]}`;
+  return `Reminder ${words} before the start.`;
+}
+
+const SOURCE_LABEL: Record<string, string> = { codeforces: 'Codeforces', leetcode: 'LeetCode', codechef: 'CodeChef', hackerrank: 'HackerRank', smartinterviews: 'Smart Interviews', interviewbit: 'InterviewBit' };
+const HEALTH_WORD: Record<SourceHealth['status'], string> = { SYNCED: 'Synced', STALE: 'Stale', ERROR: 'Error', UNAVAILABLE: 'Unavailable' };
+
+function Sources({ list, now }: { list: SourceHealth[]; now: number }) {
+  return (
+    <Section kicker="Sources" tone="deep" label="Contest sources">
+      <ul className="ledger">
+        {list.map((s) => (
+          <li key={s.platform} className="ledger__row">
+            <span className="ledger__k">{SOURCE_LABEL[s.platform] ?? s.platform}</span>
+            <span className="ledger__v">
+              <span className="strong">{HEALTH_WORD[s.status]}.</span>{' '}
+              {s.status === 'UNAVAILABLE' ? s.message
+                : s.status === 'SYNCED' ? `Last verified ${ago(s.lastOkAt, now)}.`
+                : `Temporarily unavailable. Contests last verified ${s.lastOkAt ? ago(s.lastOkAt, now) : 'never'} are retained.`}
+            </span>
+            <span />
+          </li>
+        ))}
+      </ul>
+    </Section>
+  );
+}
+
 function Row({ c, tz, now, onChange }: { c: ContestRow; tz: string; now: number; onChange: () => void }) {
   const left = new Date(c.startAt).getTime() - now;
   return (
@@ -138,6 +174,7 @@ function Row({ c, tz, now, onChange }: { c: ContestRow; tz: string; now: number;
           {left > 0 && <> · begins in {countdown(left)}</>}
           {c.ratingDelta !== null && <> · rating change {c.ratingDelta >= 0 ? '+' : '−'}{Math.abs(c.ratingDelta)}</>}
         </p>
+        {reminderLine(c) && <p className="small">{reminderLine(c)}</p>}
       </div>
       <Actions c={c} now={now} onChange={onChange} />
     </li>

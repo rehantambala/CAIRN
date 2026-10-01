@@ -1,6 +1,6 @@
 # CAIRN
 
-A personal competitive-programming performance instrument. One objective: **12,604 → 25,000+**.
+A competitive-programming performance instrument. Each person signs in with Google or GitHub, connects their coding profiles, and works towards their own objective (25,000+ by default).
 
 ```
 CURRENT STATE → TRAJECTORY → TODAY'S EXECUTION → NEXT → verified completion → score update → calendar → NEXT
@@ -11,10 +11,10 @@ CURRENT STATE → TRAJECTORY → TODAY'S EXECUTION → NEXT → verified complet
 Requires Node 22+ and PostgreSQL 14+.
 
 ```bash
-cp .env.example .env          # set DATABASE_URL, OWNER_EMAIL, OWNER_PASSWORD
+cp .env.example .env          # set DATABASE_URL; OWNER_EMAIL/OWNER_PASSWORD for a local password account
 npm install
 npm run migrate
-npm run seed                  # owner account, baseline 12,604, curated problem pool
+npm run seed                  # development owner with sample baseline figures, curated problem pool
 npm run dev                   # api :4000, web :5173
 ```
 
@@ -34,9 +34,10 @@ Tests: `npm test` (needs a `vector_test` database; set `TEST_DATABASE_URL` to ov
 |---|---|
 | Pure domain engines: score, trajectory, daily objective, calendar, awards, consistency, notifications, time | `server/src/domain` |
 | Accepted-problem pipeline, derived state, contests, notifications, sync, jobs | `server/src/services` |
-| Platform adapters (Codeforces official API, clist.by, honest fallbacks) | `server/src/adapters` |
+| Platform adapters, one per platform, each implementing only what its source provides | `server/src/adapters` |
+| Sign-in identities, profile connections, contest sources, reminders, strategist | `server/src/services/{identity,accounts,sync,notify,scheduler,strategist}.ts` |
 | HTTP API | `server/src/routes` |
 | Schema | `server/src/db/sql` |
 | Editorial frontend, PWA | `web/` |
 
-The score is computed by `server/src/domain/score.ts`, never by a model. See `DECISIONS.md` for the assumptions to confirm, and `DEPLOY.md` for free hosting.
+The score is computed by `server/src/domain/score.ts`, never by a model; the optional strategist only interprets verified figures and has no write path. See `DECISIONS.md` for the assumptions to confirm, and `DEPLOY.md` for free hosting.

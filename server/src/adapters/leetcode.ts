@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import type { NormalizedSubmission, PlatformAdapter, Profile, Totals } from './types.js';
+import { ProfileNotFound } from './types.js';
 
 const ENDPOINT = 'https://leetcode.com/graphql';
 
@@ -48,7 +49,7 @@ export function parseLeetCode(raw: unknown): { handle: string; totals: Totals; r
   const parsed = payload.safeParse(raw);
   if (!parsed.success) throw new Error(body?.errors?.[0]?.message ?? 'LeetCode returned an unrecognised response');
   const d: Parsed = parsed.data.data;
-  if (!d.matchedUser) throw new Error('LeetCode: no public profile with that handle');
+  if (!d.matchedUser) throw new ProfileNotFound('leetcode', '');
   const all = d.matchedUser.submitStatsGlobal.acSubmissionNum.find((x) => x.difficulty === 'All');
   if (!all) throw new Error('LeetCode: the solved total is missing from the response');
   const rk = d.userContestRanking ?? null;

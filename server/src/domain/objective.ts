@@ -36,6 +36,10 @@ export interface ObjectiveState {
   solved: Set<string>; // `${platform}:${externalId}`
   pool: PoolProblem[];
   baseMinutes?: number;
+  /** the user's objective score */
+  target: number;
+  /** rated platforms this user has (connected or with entered figures); nothing is allocated to others */
+  platforms: RatedPlatform[];
 }
 
 export type ItemType = 'PROBLEM_QUOTA' | 'CONTEST' | 'CONTEST_PREP' | 'REST';
@@ -121,7 +125,8 @@ function availablePool(state: ObjectiveState, platform: RatedPlatform): number {
 function todaysContests(state: ObjectiveState): ContestCandidate[] {
   const s = dayStart(state.date, state.tz), e = dayEnd(state.date, state.tz);
   return state.contests.filter(
-    (c) => c.rated && c.startAt >= s && c.startAt < e && c.endAt > state.now,
+    (c) => c.rated && c.startAt >= s && c.startAt < e && c.endAt > state.now
+      && (c.committed || state.platforms.includes(c.platform as RatedPlatform)),
   );
 }
 
@@ -185,6 +190,7 @@ export function generateObjective(state: ObjectiveState): Objective {
   // Platform weights from marginal structure, not from "solve more".
   const weights = {} as Record<RatedPlatform, number>;
   for (const p of RATED_PLATFORMS) {
+    if (!state.platforms.includes(p)) { weights[p] = 0; continue; }
     let w = BASE_WEIGHT[p];
     const below = PLATFORM_RULES[p].ratingBase - state.scoreInputs[p].rating;
     if (below > 0) w += 0.1;
@@ -239,10 +245,12 @@ export function generateObjective(state: ObjectiveState): Objective {
       `The required pace is ${t.requiredVelocity.toFixed(0)} points a day. Today's problems add ${volume} with certainty; the remainder depends on rating, which is not certain.`,
     );
   }
-  if (score.overall >= 25_000) rationale.push('The target of 25,000+ has been reached. Tracking continues beyond it.');
+  if (score.overall >= state.target) rationale.push(`The objective of ${state.target.toLocaleString('en-GB')} has been reached. Tracking continues beyond it.`);
 
   if (items.length === 0) {
-    rationale.push('The pool holds no unsolved problems and no rated contest is scheduled today.');
+    rationale.push(state.platforms.length === 0
+      ? 'No coding profile is connected yet, so no work can be allocated. Connect a profile in Preferences.'
+      : 'The pool holds no unsolved problems and no rated contest is scheduled today.');
   }
   return { date: state.date, isRest: false, items, targetScoreDelta, rationale };
 }

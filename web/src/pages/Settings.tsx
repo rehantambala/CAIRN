@@ -1,13 +1,19 @@
 import { useEffect, useState, type FormEvent } from 'react';
-import { get, post, put, type Platform, type Source } from '../api';
+import { useLocation } from 'react-router-dom';
+import { del, get, post, put, type Platform, type Source } from '../api';
 import { BRAND } from '../brand';
 import { ago } from '../format';
 import { useFetch, useNow } from '../hooks';
-import { ErrorBanner, Loading, PageHead, Section, SourceChip, useAnnouncer } from '../components/ui';
+import { ConnectionChip, ErrorBanner, Loading, PageHead, Section, useAnnouncer } from '../components/ui';
 
+interface Identity { provider: 'google' | 'github'; email: string | null; login: string | null; linkedAt: string }
 interface Payload {
-  user: { displayName: string; timezone: string; targetScore: number; targetDate: string | null; dailyMinutes: number; email: string };
-  sources: Source[]; githubLogin: string | null;
+  user: { displayName: string; timezone: string; targetScore: number; targetDate: string | null; dailyMinutes: number; email: string | null; githubLogin: string | null };
+  reminders: { enabled: boolean; h24: boolean; h1: boolean; m10: boolean };
+  identities: Identity[];
+  hasPassword: boolean;
+  detected: Partial<Record<Platform, string>>;
+  sources: Source[];
   push: { configured: boolean; publicKey: string | null };
   dev: boolean;
 }
@@ -18,70 +24,237 @@ function b64ToU8(b64: string) {
   return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)));
 }
 
+
+const AUTH_NOTE: Record<string, string> = {
+  linked: 'The sign-in method is now linked to this account.',
+  conflict: 'That account is already linked to a different CAIRN account, so it was not linked here.',
+  failed: 'Linking could not be completed. Please try again.',
+  unavailable: 'That sign-in method is not configured on this server.',
+  cancelled: 'Linking was cancelled.',
+};
+
 export function Settings() {
   const { data, error, loading, reload } = useFetch<Payload>('/settings');
   const { say, region } = useAnnouncer();
   const now = useNow(30_000);
+  const loc = useLocation();
+  const authNote = AUTH_NOTE[new URLSearchParams(loc.search).get('auth') ?? ''] ?? null;
+  useEffect(() => {
+    if (!loading && loc.hash) document.getElementById(loc.hash.slice(1))?.scrollIntoView({ block: 'start' });
+  }, [loading, loc.hash]);
   if (loading) return <Loading />;
   if (error || !data) return <ErrorBanner error={error ?? new Error('NO_DATA')} retry={reload} />;
+  const done = (msg: string) => { say(msg); reload(); };
 
   return (
     <>
-      <PageHead title="Preferences" sub="Your target, your accounts and your reminders. No platform password is ever stored." />
+      <PageHead title="Preferences" sub="Your coding profiles, sign-in, reminders and target. No platform password is ever requested or stored." />
       {region}
-      <Section kicker="Target" label="Goal"><Profile data={data} onSaved={() => { say('Saved.'); reload(); }} /></Section>
-      <Section kicker="Accounts" label="Accounts"><Connect data={data} onDone={() => { say('Accounts updated.'); reload(); }} /></Section>
-      <Section kicker="Sources" tone="deep" label="Sources">
-        <div className="stack-lg">
-          {data.sources.map((s) => <SourceForm key={s.platform} s={s} now={now} onDone={() => { say(`${s.label} updated.`); reload(); }} />)}
-        </div>
+      {authNote && <Section><p className="lead" role="status">{authNote}</p></Section>}
+      <Section kicker="Coding profiles" label="Coding profiles" id="profiles">
+        <Profiles data={data} now={now} onDone={done} />
       </Section>
-      <Section kicker="Reminders" label="Reminders"><Notifications push={data.push} /></Section>
+      <Section kicker="Contest reminders" tone="deep" label="Contest reminders" id="reminders">
+        <Reminders initial={data.reminders} onDone={done} />
+        <div style={{ marginTop: 'var(--space-9)' }}><Notifications push={data.push} /></div>
+      </Section>
+      <Section kicker="Sign-in" label="Sign-in methods"><SignIn data={data} onDone={done} /></Section>
+      <Section kicker="Target" tone="deep" label="Target"><Profile data={data} onSaved={() => done('Saved.')} /></Section>
       {data.dev && <Section kicker="Development" tone="ink" label="Development tools"><Dev onDone={reload} /></Section>}
     </>
   );
 }
 
-const AUTO = ['leetcode', 'codechef', 'codeforces'];
+const ORDER: Platform[] = ['leetcode', 'codechef', 'codeforces', 'hackerrank', 'interviewbit', 'smartinterviews'];
 
-/** One step: sign in with GitHub or paste profile addresses; handles are found, saved and read at once. */
-function Connect({ data, onDone }: { data: Payload; onDone: () => void }) {
+function Profiles({ data, now, onDone }: { data: Payload; now: number; onDone: (m: string) => void }) {
   const [text, setText] = useState('');
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
   const [out, setOut] = useState<string | null>(null);
-  const [prov, setProv] = useState<{ github: boolean; google: boolean } | null>(null);
-  useEffect(() => { void get<{ github: boolean; google: boolean }>('/auth/providers').then(setProv).catch(() => setProv(null)); }, []);
-  const linked = data.sources.filter((s) => AUTO.includes(s.platform));
-
-  async function discover(kind: 'github' | 'text') {
-    setBusy(kind); setOut(null);
+  async function paste(e: FormEvent) {
+    e.preventDefault(); setBusy(true); setOut(null);
     try {
-      const r = await post<{ found: Record<string, string>; saved: string[]; reports: { ok: boolean; message: string; platform: string }[]; message?: string }>('/accounts/discover', kind === 'github' ? { github: true } : { text });
-      const n = r.saved.length;
-      setOut(r.message ?? `${n} ${n === 1 ? 'account' : 'accounts'} connected and read${r.reports.some((x) => !x.ok) ? '; one or more could not be read and will be retried automatically' : ''}.`);
-      if (n) { setText(''); onDone(); }
-    } catch (e: any) { setOut(e.message); } finally { setBusy(null); }
+      const r = await post<{ results: { platform: string; ok: boolean; state: string; handle: string | null; message: string }[]; message: string | null }>('/profiles/discover', { text });
+      if (r.message) { setOut(r.message); return; }
+      setOut(r.results.map((x) => `${data.sources.find((s) => s.platform === x.platform)?.label}: ${x.message}`).join(' '));
+      if (r.results.some((x) => x.ok)) { setText(''); onDone('Profiles updated.'); }
+    } catch (x: any) { setOut(x.message); } finally { setBusy(false); }
   }
+  const sources = ORDER.map((p) => data.sources.find((s) => s.platform === p)!).filter(Boolean);
+  return (
+    <div className="stack-lg">
+      <p className="lead">Each profile is verified with its platform before it is connected. Platforms that permit no automatic reading keep your handle and the figures you enter.</p>
+      <form onSubmit={paste} className="paste">
+        <div className="field">
+          <label htmlFor="disc">Profile addresses</label>
+          <textarea id="disc" className="textarea" value={text} onChange={(e) => setText(e.target.value)} aria-describedby="disch" placeholder="https://leetcode.com/u/…   https://codeforces.com/profile/…" />
+          <span id="disch" className="hint">Paste LeetCode, CodeChef or Codeforces addresses in any order. Each handle is verified, then connected.</span>
+        </div>
+        <div className="btn-row"><button className="btn" disabled={busy || !text.trim()} aria-busy={busy}>{busy ? 'Verifying' : 'Verify and connect'}</button></div>
+        {out && <p className="meta" role="status">{out}</p>}
+      </form>
+      {sources.map((s) => <ProfileRow key={s.platform} s={s} detected={data.detected[s.platform] ?? null} now={now} onDone={onDone} />)}
+    </div>
+  );
+}
+
+const STATE_LINE: Record<Source['connection'], (s: Source, now: number) => string> = {
+  NOT_CONNECTED: () => 'Not connected.',
+  PENDING_VERIFICATION: (s) => `Pending verification. ${s.lastError ? `The platform could not be reached (${s.lastError}). ` : ''}It will be checked again automatically.`,
+  LIVE: (s, now) => `Verified ${ago(s.verifiedAt, now)}.`,
+  SYNCED: (s, now) => `Last synchronised ${ago(s.updatedAt, now)}.`,
+  STALE: (s, now) => `Last synchronised ${ago(s.updatedAt, now)}. The source has not confirmed these figures recently; they are retained, not refreshed.`,
+  ERROR: (s, now) => `The source could not be read${s.lastError ? `: ${s.lastError}` : ''}. The last verified figures (${ago(s.updatedAt, now)}) are retained.`,
+  MANUAL: (s, now) => (s.hasFigures ? `Figures entered by you, ${ago(s.updatedAt, now)}.` : 'Handle recorded. Enter your figures to include this platform in the score.'),
+  UNAVAILABLE: () => 'Handle recorded. Automatic reading is unavailable for this platform; enter your figures.',
+};
+
+function ProfileRow({ s, detected, now, onDone }: { s: Source; detected: string | null; now: number; onDone: (m: string) => void }) {
+  const [handle, setHandle] = useState(detected ?? '');
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  const [showFigures, setShowFigures] = useState(false);
+  const connected = !!s.username;
+  const automatic = s.capability === 'AUTOMATIC';
+
+  async function run(key: string, fn: () => Promise<string>) {
+    setBusy(key); setErr(null); setMsg(null);
+    try { const m = await fn(); setMsg(m); onDone(`${s.label}: ${m}`); } catch (e: any) { setErr(e.message); } finally { setBusy(null); }
+  }
+  const connect = (h: string) => run('connect', async () => {
+    const r = await post<{ ok: boolean; message: string }>(`/profiles/${s.platform}`, { handle: h });
+    return r.message;
+  });
 
   return (
+    <article className="src" aria-labelledby={`h-${s.platform}`}>
+      <div className="row" style={{ justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <h3 id={`h-${s.platform}`} className="display fig-xl">{s.label}</h3>
+        <ConnectionChip c={s.connection} />
+      </div>
+      {connected && <p className="statement src__handle">@{s.username}</p>}
+      <p className="body">{STATE_LINE[s.connection](s, now)}</p>
+
+      {!connected && detected && (
+        <p className="body">Detected on your GitHub profile: <span className="strong">@{detected}</span>. It is connected only if you confirm it.</p>
+      )}
+      {!connected && (
+        <form className="btn-row" style={{ alignItems: 'end' }} onSubmit={(e) => { e.preventDefault(); void connect(handle); }}>
+          <div className="field" style={{ minWidth: 220 }}>
+            <label htmlFor={`u-${s.platform}`}>Handle</label>
+            <input id={`u-${s.platform}`} className="input" value={handle} autoComplete="off" spellCheck={false} onChange={(e) => setHandle(e.target.value)} />
+          </div>
+          <button className="btn" disabled={busy !== null || !handle.trim()} aria-busy={busy === 'connect'}>{busy === 'connect' ? (automatic ? 'Verifying' : 'Saving') : 'Connect profile'}</button>
+        </form>
+      )}
+      {connected && (
+        <div className="btn-row">
+          {automatic && s.connection !== 'PENDING_VERIFICATION' && (
+            <button className="btn" disabled={busy !== null} aria-busy={busy === 'sync'} onClick={() => run('sync', async () => {
+              const r = await post<{ ok: boolean; message: string }>(`/sync/${s.platform}`);
+              if (!r.ok) throw new Error(r.message);
+              return 'Synchronised. The score has been recalculated from the platform’s figures.';
+            })}>{busy === 'sync' ? 'Synchronising' : 'Synchronise now'}</button>
+          )}
+          {s.connection === 'PENDING_VERIFICATION' && <button className="btn" disabled={busy !== null} aria-busy={busy === 'connect'} onClick={() => connect(s.username!)}>Verify again</button>}
+          <button className="btn btn--ghost" disabled={busy !== null} onClick={() => run('disc', async () => { await del(`/profiles/${s.platform}`); return 'Disconnected. Synchronisation has stopped; your history is kept.'; })}>Disconnect</button>
+        </div>
+      )}
+      <p className="small">{s.capabilityNote}</p>
+      {!automatic && (
+        <div>
+          <button className="link-arrow as-button" aria-expanded={showFigures} onClick={() => setShowFigures(!showFigures)}>{showFigures ? 'Close' : s.hasFigures ? 'Update figures' : 'Enter figures'}</button>
+          {showFigures && <Figures s={s} onDone={(m) => { setShowFigures(false); setMsg(null); onDone(m); }} />}
+        </div>
+      )}
+      {msg && <p className="meta" role="status">{msg}</p>}
+      {err && <p className="error-text" role="alert">{err}</p>}
+    </article>
+  );
+}
+
+function Figures({ s, onDone }: { s: Source; onDone: (m: string) => void }) {
+  const rated = ['leetcode', 'codechef', 'codeforces'].includes(s.platform);
+  const [f, setF] = useState({ problemsSolved: '', rating: '', contests: '', contribution: '' });
+  const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const num = (v: string) => (v.trim() === '' ? undefined : Number(v));
+  async function submit(e: FormEvent) {
+    e.preventDefault(); setBusy(true); setErr(null);
+    try {
+      await post('/import', { platform: s.platform, problemsSolved: num(f.problemsSolved), rating: num(f.rating), contests: num(f.contests), contribution: num(f.contribution), note: 'Entered by you' });
+      onDone(`${s.label} figures saved.`);
+    } catch (x: any) { setErr(x.code === 'INVALID_INPUT' ? 'Please check the values entered.' : x.message); } finally { setBusy(false); }
+  }
+  return (
+    <form onSubmit={submit} className="form-grid" style={{ marginTop: 'var(--space-5)' }}>
+      {rated ? (
+        <>
+          <div className="field"><label htmlFor={`p-${s.platform}`}>Problems solved</label><input id={`p-${s.platform}`} className="input" type="number" min={0} value={f.problemsSolved} onChange={(e) => setF({ ...f, problemsSolved: e.target.value })} /></div>
+          <div className="field"><label htmlFor={`r-${s.platform}`}>Rating</label><input id={`r-${s.platform}`} className="input" type="number" min={0} value={f.rating} onChange={(e) => setF({ ...f, rating: e.target.value })} /></div>
+          <div className="field"><label htmlFor={`c-${s.platform}`}>Contests attended</label><input id={`c-${s.platform}`} className="input" type="number" min={0} value={f.contests} onChange={(e) => setF({ ...f, contests: e.target.value })} /></div>
+        </>
+      ) : (
+        <div className="field"><label htmlFor={`k-${s.platform}`}>Score contribution</label><input id={`k-${s.platform}`} className="input" type="number" min={0} value={f.contribution} onChange={(e) => setF({ ...f, contribution: e.target.value })} /></div>
+      )}
+      <div className="btn-row" style={{ alignSelf: 'end' }}><button className="btn btn--ghost" disabled={busy} aria-busy={busy}>Save figures</button></div>
+      {err && <p className="error-text" role="alert">{err}</p>}
+    </form>
+  );
+}
+
+function Reminders({ initial, onDone }: { initial: Payload['reminders']; onDone: (m: string) => void }) {
+  const [r, setR] = useState(initial);
+  const [busy, setBusy] = useState(false);
+  async function save(next: Payload['reminders']) {
+    setR(next); setBusy(true);
+    try { await put('/settings', { reminders: next }); onDone('Reminder preferences saved.'); } finally { setBusy(false); }
+  }
+  const row = (key: keyof Payload['reminders'], label: string, hint: string) => (
+    <label className="toggle" key={key}>
+      <span><span className="strong">{label}</span><span className="small toggle__hint">{hint}</span></span>
+      <input type="checkbox" role="switch" checked={r[key]} disabled={busy || (key !== 'enabled' && !r.enabled)} onChange={(e) => void save({ ...r, [key]: e.target.checked })} />
+    </label>
+  );
+  return (
     <div className="stack">
-      <p className="lead">Connection is automatic once an account is known. Your figures are then read every few hours without further action.</p>
-      <ul className="conn" aria-label="Connection status">
-        {linked.map((s) => <li key={s.platform} className={`conn__i${s.username ? ' is-on' : ''}`}><span className="strong">{s.label}</span><span className="small">{s.username ? s.username : 'Not connected'}</span></li>)}
-      </ul>
-      <div className="btn-row">
-        {prov?.github && !data.githubLogin && <a className="btn" href="/api/auth/github/start">Continue with GitHub</a>}
-        {data.githubLogin && <button className="btn" disabled={busy !== null} aria-busy={busy === 'github'} onClick={() => discover('github')}>{busy === 'github' ? 'Reading profile' : `Find my accounts from ${data.githubLogin}`}</button>}
+      <p className="lead">Reminders are scheduled by the server, so they arrive whether or not CAIRN is open. Times follow your timezone.</p>
+      <div className="toggles">
+        {row('enabled', 'Contest reminders', 'All reminders, on or off.')}
+        {row('h24', '24 hours before', 'Rated contests on your platforms, and any contest you commit to.')}
+        {row('h1', '1 hour before', 'Contests you commit to.')}
+        {row('m10', '10 minutes before', 'Contests you commit to.')}
       </div>
-      {data.githubLogin && <p className="small">Your public GitHub profile is searched for LeetCode, CodeChef and Codeforces addresses in the biography, website, linked accounts and profile README. Nothing is written to GitHub.</p>}
-      <div className="field">
-        <label htmlFor="disc">Profile addresses</label>
-        <textarea id="disc" className="textarea" value={text} onChange={(e) => setText(e.target.value)} aria-describedby="disch" placeholder="https://leetcode.com/u/…  https://www.codechef.com/users/…  https://codeforces.com/profile/…" />
-        <span id="disch" className="hint">Paste any of the three addresses, in any order. The handle is extracted, saved and synchronised in one step.</span>
-      </div>
-      <div className="btn-row"><button className="btn btn--ghost" disabled={busy !== null || !text.trim()} aria-busy={busy === 'text'} onClick={() => discover('text')}>{busy === 'text' ? 'Connecting' : 'Connect'}</button></div>
-      {out && <p className="meta" role="status">{out}</p>}
-      <p className="small">HackerRank, InterviewBit and Smart Interviews publish no reliable public interface; their figures are entered below.</p>
+    </div>
+  );
+}
+
+function SignIn({ data, onDone }: { data: Payload; onDone: (m: string) => void }) {
+  const [prov, setProv] = useState<{ github: boolean; google: boolean } | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { void get<{ github: boolean; google: boolean }>('/auth/providers').then(setProv).catch(() => setProv(null)); }, []);
+  const tz = encodeURIComponent(Intl.DateTimeFormat().resolvedOptions().timeZone);
+  const row = (p: 'google' | 'github', label: string) => {
+    const id = data.identities.find((i) => i.provider === p);
+    return (
+      <li key={p} className="ledger__row">
+        <span className="ledger__k">{label}</span>
+        <span className="ledger__v">{id ? `Linked${id.email || id.login ? ` as ${id.login ? `@${id.login}` : id.email}` : ''}.` : 'Not linked.'}</span>
+        <span>
+          {id
+            ? <button className="link-arrow as-button" onClick={async () => { setErr(null); try { await del(`/auth/identities/${p}`); onDone(`${label} unlinked.`); } catch (e: any) { setErr(e.message); } }}>Unlink</button>
+            : prov?.[p] ? <a className="link-arrow" href={`/api/auth/${p}/start?link=1&tz=${tz}`}>Link {label}</a> : <span className="muted">Not configured</span>}
+        </span>
+      </li>
+    );
+  };
+  return (
+    <div className="stack">
+      <p className="lead">Your CAIRN account is separate from the services you sign in with. Linking a second one lets you sign in with either; neither grants access to any coding platform.</p>
+      <ul className="ledger">{row('google', 'Google')}{row('github', 'GitHub')}</ul>
+      {data.hasPassword && <p className="small">This account also has an email and password.</p>}
+      {err && <p className="error-text" role="alert">{err}</p>}
     </div>
   );
 }
@@ -108,64 +281,6 @@ function Profile({ data, onSaved }: { data: Payload; onSaved: () => void }) {
   );
 }
 
-function SourceForm({ s, now, onDone }: { s: Source; now: number; onDone: () => void }) {
-  const rated = ['leetcode', 'codechef', 'codeforces'].includes(s.platform);
-  const [username, setUsername] = useState(s.username ?? '');
-  const [f, setF] = useState({ problemsSolved: '', rating: '', contests: '', contribution: '', solved: '' });
-  const [busy, setBusy] = useState<string | null>(null);
-  const [msg, setMsg] = useState<string | null>(null);
-  const [err, setErr] = useState<string | null>(null);
-
-  async function run(key: string, fn: () => Promise<unknown>, ok: string) {
-    setBusy(key); setErr(null); setMsg(null);
-    try { await fn(); setMsg(ok); onDone(); } catch (e: any) { setErr(e.code === 'INVALID_INPUT' ? 'Please check the values entered.' : e.message); } finally { setBusy(null); }
-  }
-  const num = (v: string) => (v.trim() === '' ? undefined : Number(v));
-
-  async function doImport(e: FormEvent) {
-    e.preventDefault();
-    const ids = f.solved.split(/[\s,]+/).map((x) => x.trim()).filter(Boolean);
-    await run('import', () => post('/import', {
-      platform: s.platform, problemsSolved: num(f.problemsSolved), rating: num(f.rating), contests: num(f.contests), contribution: num(f.contribution),
-      solved: ids.length ? ids.map((id) => ({ id })) : undefined, note: 'Entered by owner',
-    }), 'Imported.');
-  }
-
-  return (
-    <div className="src">
-      <div className="row" style={{ justifyContent: 'space-between' }}>
-        <h3 className="display fig-xl">{s.label}</h3>
-        <SourceChip status={s.status} updatedAt={s.updatedAt} now={now} />
-      </div>
-      <p className="body">{s.capabilityNote}</p>
-
-      {s.capability === 'AUTOMATIC' && (
-        <div className="btn-row" style={{ alignItems: 'end' }}>
-          <div className="field" style={{ minWidth: 220 }}><label htmlFor={`u-${s.platform}`}>Handle</label><input id={`u-${s.platform}`} className="input" value={username} onChange={(e) => setUsername(e.target.value)} /></div>
-          <button className="btn btn--ghost" disabled={busy !== null} aria-busy={busy === 'save'} onClick={() => run('save', () => put(`/accounts/${s.platform}`, { username }), 'Handle saved.')}>Save handle</button>
-          <button className="btn" disabled={busy !== null || !username} aria-busy={busy === 'sync'} onClick={() => run('sync', async () => { if (username !== (s.username ?? '')) await put(`/accounts/${s.platform}`, { username }); const r = await post<{ ok: boolean; message: string }>(`/sync/${s.platform}`); if (!r.ok) throw new Error(r.message); }, 'Synchronised. The score has been recalculated from your platform figures.')}>{busy === 'sync' ? 'Synchronising' : 'Connect and synchronise'}</button>
-        </div>
-      )}
-
-      <form onSubmit={doImport} className="form-grid">
-        {rated ? (
-          <>
-            <div className="field"><label htmlFor={`p-${s.platform}`}>Problems solved</label><input id={`p-${s.platform}`} className="input" type="number" min={0} value={f.problemsSolved} onChange={(e) => setF({ ...f, problemsSolved: e.target.value })} /></div>
-            <div className="field"><label htmlFor={`r-${s.platform}`}>Rating</label><input id={`r-${s.platform}`} className="input" type="number" min={0} value={f.rating} onChange={(e) => setF({ ...f, rating: e.target.value })} /></div>
-            <div className="field"><label htmlFor={`c-${s.platform}`}>Contests attended</label><input id={`c-${s.platform}`} className="input" type="number" min={0} value={f.contests} onChange={(e) => setF({ ...f, contests: e.target.value })} /></div>
-            {s.platform !== 'codeforces' && <div className="field" style={{ gridColumn: '1 / -1' }}><label htmlFor={`s-${s.platform}`}>Solved problem ids (optional)</label><textarea id={`s-${s.platform}`} className="textarea" value={f.solved} onChange={(e) => setF({ ...f, solved: e.target.value })} aria-describedby={`sh-${s.platform}`} /><span id={`sh-${s.platform}`} className="hint">Slugs or codes, separated by spaces or commas. They are retained so that a problem is never suggested again or counted twice.</span></div>}
-          </>
-        ) : (
-          <div className="field"><label htmlFor={`k-${s.platform}`}>Score contribution</label><input id={`k-${s.platform}`} className="input" type="number" min={0} value={f.contribution} onChange={(e) => setF({ ...f, contribution: e.target.value })} /></div>
-        )}
-        <div className="btn-row" style={{ alignSelf: 'end' }}><button className="btn btn--ghost" disabled={busy !== null} aria-busy={busy === 'import'}>{rated ? 'Import figures' : 'Save'}</button></div>
-      </form>
-      {msg && <p className="meta" role="status">{msg}</p>}
-      {err && <p className="error-text" role="alert">{err}</p>}
-    </div>
-  );
-}
-
 function Notifications({ push }: { push: Payload['push'] }) {
   const [state, setState] = useState<string | null>(null);
   const supported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window;
@@ -183,8 +298,8 @@ function Notifications({ push }: { push: Payload['push'] }) {
   }
   return (
     <div className="stack">
-      <p className="lead">Reminders are sent 24 hours before a contest and, once you have committed, 1 hour and about 10 minutes before it, with a short note when the window closes.</p>
-      <p className="meta">Push service: {push.configured ? 'ready' : 'not yet configured'}</p>
+      <p className="body">Reminders reach a device once that device is enabled here. Each phone or browser is enabled separately.</p>
+      <p className="meta">Push service on this server: {push.configured ? 'ready' : 'not configured'}</p>
       {!supported && <p className="muted">This browser does not support push notifications. On iOS, add {BRAND} to the home screen first.</p>}
       <div className="btn-row"><button className="btn" onClick={enable} disabled={!supported || !push.configured}>Enable on this device</button></div>
       {state && <p className="meta" role="status">{state}</p>}

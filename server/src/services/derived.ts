@@ -7,7 +7,7 @@ import { computeScore } from '../domain/score.js';
 import { addDays, dayEnd, dayKey, dayStart, hourMinute } from '../domain/time.js';
 import { computeTrajectory, type Snapshot } from '../domain/trajectory.js';
 import type { Platform, Verification } from '../domain/types.js';
-import { getUser, loadScore, loadStats, recordEvent, toScoreInputs } from './state.js';
+import { getUser, knownRated, loadScore, loadStats, recordEvent, toScoreInputs } from './state.js';
 
 // ---------- snapshots ----------
 
@@ -143,9 +143,17 @@ export async function ensureObjective(db: Db, userId: string, now: number): Prom
   const user = await getUser(db, userId);
   const date = dayKey(now, user.timezone);
   const existing = await loadObjectives(db, userId, date, date);
-  if (existing[0]) return existing[0];
+  const loaded = await loadScore(db, userId);
+  const platforms = knownRated(loaded.stats);
+  if (existing[0]) {
+    // A day planned before any profile was connected is empty; once a profile exists it is planned afresh.
+    const empty = existing[0].status === 'ACTIVE'
+      && !(await db.query('select 1 from daily_objective_items where objective_id=$1 limit 1', [existing[0].id])).rowCount;
+    if (!(empty && platforms.length > 0)) return existing[0];
+    await db.query('delete from daily_objectives where id=$1', [existing[0].id]);
+  }
 
-  const { inputs, score } = await loadScore(db, userId);
+  const { inputs, score } = loaded;
   const snapshots = await loadSnapshots(db, userId);
   const trajectory = computeTrajectory({ snapshots, now, target: user.targetScore, targetDate: user.targetDate, tz: user.timezone });
   const { consistency } = await consistencyFor(db, userId, now, user.timezone);
@@ -154,6 +162,7 @@ export async function ensureObjective(db: Db, userId: string, now: number): Prom
     executionRate: consistency.executionRate, consecutiveComplete: consistency.consecutiveComplete,
     contests: await loadContestCandidates(db, userId, now),
     solved: await loadSolvedSet(db, userId), pool: await loadPool(db), baseMinutes: user.dailyMinutes,
+    target: user.targetScore, platforms,
   };
   const obj: Objective = generateObjective(state);
 

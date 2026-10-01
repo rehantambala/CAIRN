@@ -24,7 +24,16 @@ export type Platform = 'leetcode' | 'codechef' | 'codeforces' | 'smartinterviews
 export type SourceState = 'LIVE' | 'SYNCED' | 'IMPORTED' | 'MANUAL' | 'STALE' | 'ERROR';
 export type DayState = 'COMPLETE' | 'ACTIVE' | 'PARTIAL' | 'MISSED' | 'REST';
 
-export interface Source { platform: Platform; label: string; status: SourceState; updatedAt: string | null; note: string | null; capability: 'AUTOMATIC' | 'IMPORT' | 'MANUAL'; capabilityNote: string; username: string | null }
+export type Connection = 'NOT_CONNECTED' | 'PENDING_VERIFICATION' | 'LIVE' | 'SYNCED' | 'STALE' | 'ERROR' | 'MANUAL' | 'UNAVAILABLE';
+export interface Source {
+  platform: Platform; label: string; status: SourceState; updatedAt: string | null; note: string | null;
+  capability: 'AUTOMATIC' | 'IMPORT' | 'MANUAL'; capabilityNote: string; username: string | null;
+  connection: Connection; verifiedAt: string | null; lastError: string | null; hasFigures: boolean;
+  capabilities: { profile: boolean; submissions: boolean; rating: boolean; contests: boolean; contestParticipation: boolean };
+}
+export interface SourceHealth { platform: string; status: 'SYNCED' | 'STALE' | 'ERROR' | 'UNAVAILABLE'; lastOkAt: string | null; checkedAt: string; message: string | null }
+export interface Advice { next: { action: string; why: string }; today: string[]; contestPriority: string | null; practicePriority: string | null; recovery: string | null }
+export interface Strategist { status: 'OFF' | 'OK' | 'UNAVAILABLE'; advice: Advice | null; generatedAt: string | null; message: string | null }
 export interface RatedComponent {
   platform: 'leetcode' | 'codechef' | 'codeforces'; label: string; total: number; problems: number; rating: number; contests: number;
   parts: { problems: number; rating: number; contests: number };
@@ -70,11 +79,12 @@ export interface Overview {
   score: ScoreView; target: number; remaining: number; trajectory: Trajectory;
   milestones: { list: number[]; current: number; next: number | null };
   next: Next; today: Objective; changes: { at: string; text: string; type: string }[]; consistency: Consistency; awards: string[];
-  sources: Source[]; upcomingContests: ContestCand[];
-  reachability: { current: number; projected: number; gained: number; gap: number; coveredShare: number; stillNeeded: number; fixedShareOfCurrent: number };
+  sources: Source[]; upcomingContests: ContestCand[]; knownSources: Platform[];
+  reachability: { current: number; projected: number; gained: number; gap: number; coveredShare: number; stillNeeded: number; fixedShareOfCurrent: number; targets: Partial<Record<'leetcode' | 'codechef' | 'codeforces', number>> };
 }
 export interface ContestRow {
   id: string; platform: Platform; label: string; title: string; startAt: string; endAt: string; registrationUrl: string | null; contestUrl: string | null;
   rated: boolean; committed: boolean; prepMinutes: number; attended: boolean; ratingDelta: number | null;
   state: 'UPCOMING' | 'STARTING_SOON' | 'LIVE' | 'FINISHED' | 'MISSED' | 'ATTENDED'; manualOk: boolean; plan: ContestPlan | null;
+  source: string | null; lastVerifiedAt: string | null; reminders: { type: 'CONTEST_24H' | 'CONTEST_1H' | 'CONTEST_10M'; at: string; status: string }[];
 }

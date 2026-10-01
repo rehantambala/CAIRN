@@ -25,6 +25,9 @@ const plural = (n: number, one: string, many: string) => (n === 1 ? one : many);
 /** One statement at the head of the page: the present situation, and what follows from it. */
 export function dayLine(c: DayCtx): string {
   const left = c.total - c.done;
+  if (c.total === 0 && !c.isRest) {
+    return 'No problem work is planned today. Daily work is drawn from LeetCode, CodeChef and Codeforces; connect one of them in Preferences.';
+  }
   switch (dayMood(c)) {
     case 'rest':
       return 'Today is a scheduled rest day. Recovery is planned because sustained output depends on it, and it does not interrupt your record.';

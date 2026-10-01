@@ -1,15 +1,17 @@
 import type { Db } from '../db/pool.js';
 import { AWARD_DEFINITIONS } from '../domain/awards.js';
-import { MILESTONES, dailySeries } from '../domain/trajectory.js';
-import { marginal, reachability, computeScore, remaining, type ScoreInputs } from '../domain/score.js';
+import { dailySeries, milestonesFor } from '../domain/trajectory.js';
+import { marginal, reachability, computeScore, remaining, scenarioRatings, type ScoreInputs } from '../domain/score.js';
 import { addDays, dayKey, dayStart } from '../domain/time.js';
 import { PLATFORM_LABEL, RATED_PLATFORMS, type Platform } from '../domain/types.js';
 import { ADAPTERS } from '../adapters/index.js';
+import { capabilitiesOf } from '../adapters/types.js';
 import { awardMetrics, consistencyFor, loadContestCandidates, loadPool, loadSnapshots, loadSolvedSet } from './derived.js';
 import { buildBrief, contestPlan } from '../domain/brief.js';
 import { contestState } from './contests.js';
+import { sourceHealth } from './sync.js';
 import { computeToday, computeTrajectoryFor } from './today.js';
-import { getUser, loadScore } from './state.js';
+import { connectionOf, getUser, knownRated, loadScore } from './state.js';
 
 export function describeEvent(e: { event_type: string; platform: string | null; payload_json: any; created_at: Date }): string | null {
   const p = e.payload_json ?? {};
@@ -51,6 +53,11 @@ export function sourcesView(stats: Awaited<ReturnType<typeof loadScore>>['stats'
     updatedAt: s.lastUpdatedAt ? s.lastUpdatedAt.toISOString() : null, note: s.sourceNote,
     capability: ADAPTERS[s.platform].capability, capabilityNote: ADAPTERS[s.platform].capabilityNote,
     username: s.username || null,
+    connection: connectionOf(s, ADAPTERS[s.platform].capability),
+    capabilities: capabilitiesOf(ADAPTERS[s.platform]),
+    verifiedAt: s.verifiedAt ? s.verifiedAt.toISOString() : null,
+    lastError: s.lastError,
+    hasFigures: s.known,
   }));
 }
 
@@ -85,8 +92,10 @@ export async function overview(db: Db, userId: string, now: number) {
   const { consistency } = await consistencyFor(db, userId, now, user.timezone);
   const awards = (await db.query('select award_type, achieved_at from awards where user_id=$1 order by achieved_at desc', [userId])).rows;
   const contests = await loadContestCandidates(db, userId, now);
-  const reach = reachability(loaded.inputs, { leetcode: 1570, codechef: 1400, codeforces: 920 });
-  const next = MILESTONES.find((m) => m > loaded.score.overall) ?? null;
+  const known = knownRated(loaded.stats);
+  const reach = reachability(loaded.inputs, scenarioRatings(loaded.inputs, known), user.targetScore);
+  const milestoneList = milestonesFor(user.targetScore);
+  const next = milestoneList.find((m) => m > loaded.score.overall) ?? null;
   const brief = buildBrief({
     items: today.objective.items, scoreNow: loaded.score.overall, milestone: next, now,
     tz: user.timezone, date: today.objective.date, isRest: today.objective.isRest,
@@ -100,7 +109,9 @@ export async function overview(db: Db, userId: string, now: number) {
     target: user.targetScore,
     remaining: remaining(loaded.score.overall, user.targetScore),
     trajectory,
-    milestones: { list: MILESTONES, current: loaded.score.overall, next },
+    milestones: { list: milestoneList, current: loaded.score.overall, next },
+    /** sources this user has: none means a new person who has not yet connected anything */
+    knownSources: loaded.stats.filter((s) => s.known).map((s) => s.platform),
     next: today.next,
     today: today.objective,
     changes: await recentChanges(db, userId, 8),
@@ -124,8 +135,19 @@ export async function contestsView(db: Db, userId: string, now: number) {
       order by c.start_at`, [userId, new Date(now), new Date(now - 30 * 86_400_000)],
   )).rows;
   const linked = new Set((await db.query(`select platform from platform_accounts where user_id=$1 and username <> ''`, [userId])).rows.map((r) => r.platform as string));
-  const [pool, solved, inputs] = [await loadPool(db), await loadSolvedSet(db, userId), (await loadScore(db, userId)).inputs];
+  const loaded = await loadScore(db, userId);
+  const [pool, solved, inputs] = [await loadPool(db), await loadSolvedSet(db, userId), loaded.inputs];
+  const mine = new Set<string>(knownRated(loaded.stats));
   const date = dayKey(now, user.timezone);
+  // This user's own reminder schedule, per contest (global contests are shared; reminders are not).
+  const reminders = new Map<string, { type: string; at: string; status: string }[]>();
+  for (const n of (await db.query(
+    `select type, scheduled_for, status, payload_json->>'contestId' as cid from notifications
+      where user_id=$1 and type in ('CONTEST_24H','CONTEST_1H','CONTEST_10M') and status in ('PENDING','DELIVERED') order by scheduled_for`, [userId],
+  )).rows) {
+    if (!reminders.has(n.cid)) reminders.set(n.cid, []);
+    reminders.get(n.cid)!.push({ type: n.type, at: n.scheduled_for.toISOString(), status: n.status });
+  }
   const view = rows.map((r) => {
     const startAt = (r.start_at as Date).getTime(), endAt = (r.end_at as Date).getTime();
     return {
@@ -135,7 +157,10 @@ export async function contestsView(db: Db, userId: string, now: number) {
       committed: r.committed, prepMinutes: r.prep_minutes ?? 30, attended: !!r.attended,
       ratingDelta: r.rating_delta, state: contestState({ startAt, endAt }, now, r.committed, !!r.attended),
       manualOk: ADAPTERS[r.platform as Platform].capability !== 'AUTOMATIC' || !linked.has(r.platform),
-      plan: r.rated && endAt > now
+      source: r.source ?? null,
+      lastVerifiedAt: r.last_verified_at ? r.last_verified_at.toISOString() : null,
+      reminders: reminders.get(r.id) ?? [],
+      plan: r.rated && endAt > now && mine.has(r.platform)
         ? contestPlan({
             platform: r.platform as Platform, startAt, prepMinutes: r.prep_minutes ?? 30, pool, solved, date,
             rating: (RATED_PLATFORMS as readonly string[]).includes(r.platform) ? inputs[r.platform as (typeof RATED_PLATFORMS)[number]].rating : null,
@@ -143,7 +168,7 @@ export async function contestsView(db: Db, userId: string, now: number) {
         : null,
     };
   });
-  return { timezone: user.timezone, now: new Date(now).toISOString(), contests: view };
+  return { timezone: user.timezone, now: new Date(now).toISOString(), contests: view, sources: await sourceHealth(db) };
 }
 
 export async function trajectoryView(db: Db, userId: string, now: number) {
@@ -151,15 +176,16 @@ export async function trajectoryView(db: Db, userId: string, now: number) {
   const { trajectory, score } = await computeTrajectoryFor(db, userId, now);
   const snaps = await loadSnapshots(db, userId);
   const series = dailySeries(snaps, dayKey(now, user.timezone), user.timezone);
-  const stats = (await loadScore(db, userId)).inputs;
+  const loadedStats = await loadScore(db, userId);
+  const stats = loadedStats.inputs;
   return {
     trajectory, series, target: user.targetScore, targetDate: user.targetDate,
-    milestones: [...MILESTONES].map((m) => ({ value: m, reached: score.overall >= m })),
-    reachability: reachability(stats, { leetcode: 1570, codechef: 1400, codeforces: 920 }),
+    milestones: milestonesFor(user.targetScore).map((m) => ({ value: m, reached: score.overall >= m })),
+    reachability: reachability(stats, scenarioRatings(stats, knownRated(loadedStats.stats)), user.targetScore),
   };
 }
 
-export function simulate(current: ScoreInputs, sim: ScoreInputs, target = 25_000) {
+export function simulate(current: ScoreInputs, sim: ScoreInputs, target: number) {
   const cur = computeScore(current), res = computeScore(sim);
   // Effect of each changed variable in isolation, holding all others at current values.
   const effects: { key: string; label: string; from: number; to: number; effect: number }[] = [];

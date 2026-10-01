@@ -22,6 +22,7 @@ function state(over: Partial<ObjectiveState> = {}): ObjectiveState {
     now: NOW, tz: 'Asia/Kolkata', date: DATE, scoreInputs: BASELINE,
     trajectory: computeTrajectory({ snapshots: [], now: NOW, targetDate: '2027-03-31' }),
     executionRate: 80, consecutiveComplete: 2, contests: [], solved: new Set(), pool: pool(),
+    target: 25_000, platforms: ['leetcode', 'codechef', 'codeforces'],
     ...over,
   };
 }
@@ -99,5 +100,16 @@ describe('pickNext', () => {
     const o = generateObjective(state());
     const progress = o.items.map((item) => ({ item, done: item.quota, completed: true }));
     expect(pickNext(progress, [], NOW, 'Asia/Kolkata').kind).toBe('COMPLETE');
+  });
+
+  it('allocates nothing to platforms the user does not have', () => {
+    const o = generateObjective(state({ platforms: ['codeforces'] }));
+    const plats = new Set(o.items.filter((i) => i.type === 'PROBLEM_QUOTA').map((i) => i.platform));
+    expect([...plats]).toEqual(['codeforces']);
+  });
+  it('allocates no work to a person with no profile and says why', () => {
+    const o = generateObjective(state({ platforms: [] }));
+    expect(o.items).toEqual([]);
+    expect(o.rationale.join(' ')).toMatch(/No coding profile is connected/);
   });
 });

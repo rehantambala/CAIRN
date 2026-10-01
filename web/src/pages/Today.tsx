@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import type { DayState, Overview } from '../api';
+import type { DayState, Overview, Strategist } from '../api';
 import { ago, fmt, signed } from '../format';
 import { useFetch, useNow } from '../hooks';
 import { dayLine, dayMood, gradient, greetingWord, streakHead, streakLine, STATUS_WORD, statusLine } from '../copy';
@@ -56,6 +56,7 @@ export function Today() {
   const autoSet = new Set(o.sources.filter((s) => s.capability === 'AUTOMATIC' && s.username).map((s) => s.platform as string));
   const week = cal ? lastSeven(cal.today, cal.days) : [];
   const dayDone = dayMood(ctx) === 'done' || dayMood(ctx) === 'manual';
+  if (o.knownSources.length === 0) return <Welcome o={o} />;
 
   return (
     <>
@@ -83,6 +84,8 @@ export function Today() {
       <section className="block block-ink next-wrap" aria-label="Next action">
         <div className="frame"><NextBlock next={o.next} items={o.today.items} delta={o.today.targetScoreDelta} now={now} fetchedAt={fetchedAt} /></div>
       </section>
+
+      <Counsel />
 
       <Section kicker={dayDone ? 'Today · complete' : 'Today’s objective'} id="today-list">
         <div className="tday-head">
@@ -150,5 +153,66 @@ export function Today() {
         <p className="small" style={{ marginTop: 'var(--space-4)' }}>{fmt(o.remaining)} points remain to the target. Every figure is taken from recorded data; none is estimated.</p>
       </Section>
     </>
+  );
+}
+
+/** A new person: no figures yet, so no score is shown and nothing is implied. */
+function Welcome({ o }: { o: Overview }) {
+  const pending = o.sources.filter((s) => s.username);
+  const next = o.upcomingContests[0];
+  return (
+    <>
+      <section className="hero block block-sky" aria-label="Welcome">
+        <Contours />
+        <div className="frame">
+          <p className="kicker enter">Welcome{o.user.displayName && o.user.displayName !== 'New member' ? `, ${o.user.displayName}` : ''}</p>
+          <h1 className="display fig-2xl enter" style={{ animationDelay: '0.08s' }}>Establish your current position.</h1>
+          <p className="lead enter" style={{ animationDelay: '0.16s', maxWidth: '40ch', margin: 'var(--space-6) auto 0' }}>
+            Your position is calculated from your own coding profiles. Connect them first; nothing is estimated in their absence.
+          </p>
+          <div className="btn-row enter" style={{ animationDelay: '0.28s', justifyContent: 'center', marginTop: 'var(--space-8)' }}>
+            <Link to="/settings#profiles" className="btn btn--big">Connect your coding profiles</Link>
+          </div>
+          {pending.length > 0 && (
+            <p className="body enter" style={{ animationDelay: '0.36s', marginTop: 'var(--space-6)' }}>
+              {pending.map((s) => s.label).join(', ')} {pending.length === 1 ? 'is' : 'are'} recorded and awaiting verification or figures.
+            </p>
+          )}
+        </div>
+      </section>
+      <Section kicker="Meanwhile">
+        <div className="grid-2">
+          <p className="statement">{next ? `The next rated contest is ${next.title}.` : 'Public contests are listed in Fixtures.'}</p>
+          <div style={{ alignSelf: 'end' }}>
+            <p className="body">Contests from Codeforces, LeetCode and CodeChef are listed for everyone, whether or not a profile is connected.</p>
+            <p style={{ marginTop: 'var(--space-5)' }}><Link to="/contests" className="link-arrow">Open the fixtures</Link></p>
+          </div>
+        </div>
+      </Section>
+    </>
+  );
+}
+
+/** Advisory interpretation above the deterministic plan. It cannot change any figure; it is hidden when off. */
+function Counsel() {
+  const { data } = useFetch<Strategist>('/strategist');
+  if (!data || data.status === 'OFF' || (!data.advice && !data.message)) return null;
+  const a = data.advice;
+  return (
+    <Section kicker="Strategist · advisory" tone="deep" label="Strategist">
+      {!a ? <p className="body">{data.message}</p> : (
+        <div className="grid-2">
+          <div>
+            <p className="statement">{a.next.action}</p>
+            <p className="body" style={{ marginTop: 'var(--space-4)' }}>{a.next.why}</p>
+          </div>
+          <div className="stack" style={{ alignSelf: 'end' }}>
+            {a.today.length > 0 && <ul className="counsel">{a.today.map((t, i) => <li key={i}>{t}</li>)}</ul>}
+            {[a.contestPriority, a.practicePriority, a.recovery].filter(Boolean).map((t, i) => <p key={i} className="body">{t}</p>)}
+            <p className="small">Advice only. It is drawn from your verified figures and cannot change them.</p>
+          </div>
+        </div>
+      )}
+    </Section>
   );
 }

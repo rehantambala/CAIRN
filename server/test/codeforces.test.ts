@@ -79,7 +79,7 @@ describe('Codeforces adapter normalization', () => {
 
 describe('Codeforces sync into the pipeline', () => {
   async function connect() {
-    await pool.query(`update platform_accounts set username='tester' where platform='codeforces'`);
+    await pool.query(`update platform_accounts set username='tester', connection_status='CONNECTED' where platform='codeforces'`);
   }
 
   it('syncs once: dedupes resubmissions, records participation, rating, and is idempotent', async () => {

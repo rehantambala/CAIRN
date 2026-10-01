@@ -22,21 +22,25 @@ export interface Planned {
 
 const MIN = 60_000;
 
+export interface ReminderPrefs { enabled: boolean; h24: boolean; h1: boolean; m10: boolean }
+export const ALL_REMINDERS: ReminderPrefs = { enabled: true, h24: true, h1: true, m10: true };
+
 /**
- * Reminders for a contest. 24h is sent for any tracked contest; 1h, 10m and
- * closed only when the user has committed. Delayed jobs are tolerated: a slot
- * whose time has passed is still planned as long as the moment it refers to
- * has not passed yet, and is delivered at the next run ("about" wording).
+ * Reminders for one user and one contest, all as UTC instants (presentation converts to the user's timezone).
+ * 24h: contests the user committed to, or rated contests on a platform the user has. 1h, 10m and "closed":
+ * committed contests only. Each slot follows the user's preferences. Delayed jobs are tolerated: a slot whose
+ * time has passed is still planned while the moment it refers to has not passed, and is delivered on the next run.
  */
-export function planContestReminders(c: ContestLite, committed: boolean, now: number): Planned[] {
+export function planContestReminders(c: ContestLite, committed: boolean, now: number, prefs: ReminderPrefs = ALL_REMINDERS, relevant = true): Planned[] {
   const out: Planned[] = [];
+  if (!prefs.enabled) return out;
   const key = c.id;
-  if (now < c.startAt - 12 * 60 * MIN) {
+  if (prefs.h24 && (committed || relevant) && now < c.startAt - 12 * 60 * MIN) {
     out.push({ type: 'CONTEST_24H', key, scheduledFor: c.startAt - 24 * 60 * MIN });
   }
   if (committed) {
-    if (now < c.startAt - 30 * MIN) out.push({ type: 'CONTEST_1H', key, scheduledFor: c.startAt - 60 * MIN });
-    if (now < c.startAt) out.push({ type: 'CONTEST_10M', key, scheduledFor: c.startAt - 10 * MIN });
+    if (prefs.h1 && now < c.startAt - 30 * MIN) out.push({ type: 'CONTEST_1H', key, scheduledFor: c.startAt - 60 * MIN });
+    if (prefs.m10 && now < c.startAt) out.push({ type: 'CONTEST_10M', key, scheduledFor: c.startAt - 10 * MIN });
     out.push({ type: 'CONTEST_CLOSED', key, scheduledFor: c.endAt });
   }
   return out;
@@ -48,7 +52,7 @@ export function buildMessage(
   type: NotificationType, c: ContestLite | null, now: number, tz: string,
 ): Message {
   const name = c ? `${PLATFORM_LABEL[c.platform]} ${c.title}` : '';
-  const link = c ? `/contests?focus=${encodeURIComponent(c.id)}` : '/today';
+  const link = c ? `/contests?focus=${encodeURIComponent(c.id)}` : '/';
   switch (type) {
     case 'CONTEST_24H':
       return { title: BRAND, url: link,
@@ -66,7 +70,7 @@ export function buildMessage(
     case 'CONTEST_CLOSED':
       return { title: BRAND, url: link, body: `${name || 'The contest'} has closed. Your result will be synchronised shortly.` };
     case 'OBJECTIVE_COMPLETE':
-      return { title: BRAND, url: '/calendar', body: "Today's objective is complete, and the execution is recorded." };
+      return { title: BRAND, url: '/log', body: "Today's objective is complete, and the execution is recorded." };
     case 'CONTEST_MISSED':
       return { title: BRAND, url: '/contests',
         body: 'A committed contest was not attended, and no credit is given retrospectively. The next rated contest has been identified.' };

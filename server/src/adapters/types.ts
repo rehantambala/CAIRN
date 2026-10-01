@@ -42,6 +42,11 @@ export interface Profile { handle: string; rating: number | null; maxRating: num
  */
 export interface Totals { problems: number; contests: number; rating: number | null }
 
+/** The platform answered and says the handle does not exist (as opposed to the source being unreachable). */
+export class ProfileNotFound extends Error {
+  constructor(public platform: Platform, handle: string) { super(handle ? `No public profile exists with the handle "${handle}".` : 'No public profile exists with that handle.'); }
+}
+
 export class AdapterUnavailable extends Error {
   constructor(public platform: Platform, message: string) { super(message); }
 }
@@ -64,4 +69,12 @@ export interface PlatformAdapter {
   getRatingHistory?(handle: string): Promise<RatingPoint[]>;
   /** state to label data fetched by this adapter at the moment of fetching */
   sourceState: SourceState;
+}
+
+/** What a source can actually provide, derived from the methods it implements; nothing is forced. */
+export function capabilitiesOf(a: PlatformAdapter) {
+  return {
+    profile: !!a.getProfile, submissions: !!a.getSubmissions, rating: !!(a.getRatingHistory || a.getTotals || a.getProfile),
+    contests: !!a.getContests, contestParticipation: !!(a.getRatingHistory || a.getContestParticipation || a.getTotals),
+  };
 }

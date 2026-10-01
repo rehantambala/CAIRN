@@ -116,23 +116,31 @@ export function marginal(platform: RatedPlatform, rating: number): Marginal {
  * problems and contests held as-is. Shows how much of the gap the modelled
  * platforms can cover, given SI/IB/HR stay fixed.
  */
-export function reachability(current: ScoreInputs, ratingTargets: Record<RatedPlatform, number>) {
+/** A scenario only: each known rating 200 higher, or 100 past the point where rating starts to score. */
+export function scenarioRatings(current: ScoreInputs, known: RatedPlatform[]): Partial<Record<RatedPlatform, number>> {
+  const out: Partial<Record<RatedPlatform, number>> = {};
+  for (const p of known) out[p] = Math.max(current[p].rating + 200, PLATFORM_RULES[p].ratingBase + 100);
+  return out;
+}
+
+export function reachability(current: ScoreInputs, ratingTargets: Partial<Record<RatedPlatform, number>>, objective = TARGET_MIN) {
   const scenario: ScoreInputs = {
     ...current,
-    leetcode: { ...current.leetcode, rating: Math.max(current.leetcode.rating, ratingTargets.leetcode) },
-    codechef: { ...current.codechef, rating: Math.max(current.codechef.rating, ratingTargets.codechef) },
-    codeforces: { ...current.codeforces, rating: Math.max(current.codeforces.rating, ratingTargets.codeforces) },
+    leetcode: { ...current.leetcode, rating: Math.max(current.leetcode.rating, ratingTargets.leetcode ?? 0) },
+    codechef: { ...current.codechef, rating: Math.max(current.codechef.rating, ratingTargets.codechef ?? 0) },
+    codeforces: { ...current.codeforces, rating: Math.max(current.codeforces.rating, ratingTargets.codeforces ?? 0) },
   };
   const now = computeScore(current).overall;
   const projected = computeScore(scenario).overall;
-  const gap = remaining(now);
+  const gap = remaining(now, objective);
   return {
     current: now,
     projected,
     gained: projected - now,
     gap,
     coveredShare: gap === 0 ? 1 : Math.min(1, (projected - now) / gap),
-    stillNeeded: remaining(projected),
+    stillNeeded: remaining(projected, objective),
+    targets: ratingTargets,
     fixedShareOfCurrent: now === 0 ? 0 :
       (current.smartinterviews + current.interviewbit + current.hackerrank) / now,
   };

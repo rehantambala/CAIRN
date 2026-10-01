@@ -8,12 +8,14 @@ import { createApp } from './app.js';
 import { pool } from './db/pool.js';
 import { seedOwner, loadProblemPool } from './db/seed.js';
 import { refreshPool } from './services/pool.js';
+import { startScheduler } from './services/scheduler.js';
 
 await migrate();
 // Idempotent first-boot seed (free hosts have no shell): owner + baseline + problem pool.
 // The pool must exist before the first objective is generated, or that day would store no problem links.
 await loadProblemPool(pool);
-await seedOwner(pool);
+// The existing owner's account is created only when its credentials are configured; nobody else is seeded.
+if (config.ownerEmail && config.ownerPassword) await seedOwner(pool);
 const app = createApp();
 
 // In production the API can also serve the built frontend, so one free service hosts both.
@@ -26,3 +28,5 @@ if (existsSync(dist)) {
 app.listen(config.port, () => console.log(`CAIRN api on :${config.port}`));
 // Extend the pool from the platforms' own lists, in the background; failure is harmless.
 void refreshPool(pool).catch(() => {});
+// Reminders, synchronisation and contest discovery run on the server's own schedule.
+if (process.env.SCHEDULER !== 'off') startScheduler();

@@ -1,7 +1,7 @@
 import webpush from 'web-push';
 import { config } from '../config.js';
 import type { Db } from '../db/pool.js';
-import { buildMessage, isStillRelevant, planContestReminders, type ContestLite, type NotificationType } from '../domain/notifications.js';
+import { buildMessage, isStillRelevant, planContestReminders, type ContestLite, type NotificationType, type ReminderPrefs } from '../domain/notifications.js';
 import { getUser, recordEvent } from './state.js';
 
 let vapidReady = false;
@@ -20,8 +20,22 @@ async function contestLite(db: Db, id: string): Promise<ContestLite | null> {
   return { id: r.id, platform: r.platform, title: r.title, startAt: r.start_at.getTime(), endAt: r.end_at.getTime() };
 }
 
-/** Plans reminders for tracked contests in the next 14 days. Unique (user,type,key) makes reruns no-ops. */
+/** Delivery is replaceable (tests, other channels); the default is Web Push. */
+export interface PushTarget { endpoint: string; p256dh: string; auth: string }
+export type Sender = (target: PushTarget, payload: string) => Promise<void>;
+export const webPushSender: Sender = async (t, payload) => {
+  if (!initPush()) throw Object.assign(new Error('PUSH_NOT_CONFIGURED'), { notConfigured: true });
+  await webpush.sendNotification({ endpoint: t.endpoint, keys: { p256dh: t.p256dh, auth: t.auth } }, payload);
+};
+
+/** Plans this user's reminders for contests in the next 14 days. Unique (user,type,key) makes reruns no-ops. */
 export async function scheduleAll(db: Db, userId: string, now: number): Promise<number> {
+  const u = (await db.query('select remind_enabled, remind_24h, remind_1h, remind_10m from users where id=$1', [userId])).rows[0];
+  if (!u) return 0;
+  const prefs: ReminderPrefs = { enabled: u.remind_enabled, h24: u.remind_24h, h1: u.remind_1h, m10: u.remind_10m };
+  const mine = new Set((await db.query(
+    `select platform from platform_stats where user_id=$1 union select platform from platform_accounts where user_id=$1 and username <> ''`, [userId],
+  )).rows.map((r) => r.platform as string));
   const rows = (await db.query(
     `select c.*, (cm.id is not null) as committed from contests c
        left join contest_commitments cm on cm.contest_id = c.id and cm.user_id = $1
@@ -31,10 +45,14 @@ export async function scheduleAll(db: Db, userId: string, now: number): Promise<
   let inserted = 0;
   for (const r of rows) {
     const c: ContestLite = { id: r.id, platform: r.platform, title: r.title, startAt: r.start_at.getTime(), endAt: r.end_at.getTime() };
-    for (const p of planContestReminders(c, r.committed, now)) {
+    for (const p of planContestReminders(c, r.committed, now, prefs, mine.has(c.platform))) {
+      // A reminder withdrawn by a preference change comes back if the preference is restored; nothing sent is resent.
       const res = await db.query(
         `insert into notifications(user_id, type, dedupe_key, scheduled_for, payload_json)
-         values ($1,$2,$3,$4,$5) on conflict (user_id, type, dedupe_key) do nothing returning id`,
+         values ($1,$2,$3,$4,$5) on conflict (user_id, type, dedupe_key) do update
+           set status='PENDING', scheduled_for=excluded.scheduled_for, payload_json=excluded.payload_json
+           where notifications.status='SKIPPED' and notifications.payload_json->>'reason'='PREFERENCE'
+         returning id`,
         [userId, p.type, p.key, new Date(p.scheduledFor), JSON.stringify({ contestId: c.id })],
       );
       if (res.rows[0]) {
@@ -77,16 +95,20 @@ export async function scheduleMissed(db: Db, userId: string, now: number): Promi
 
 export interface DeliverResult { due: number; delivered: number; skipped: number; failed: number }
 
-/** Delivers everything due. Delayed runs deliver late; expired moments are SKIPPED, never sent stale. */
-export async function deliverDue(db: Db, userId: string, now: number): Promise<DeliverResult> {
+/**
+ * Delivers everything due for one user. Rows are claimed with FOR UPDATE SKIP LOCKED inside the caller's
+ * transaction, so two workers running at once (the minute tick and the external cron) never send the same
+ * reminder twice. Delayed runs deliver late; expired moments are SKIPPED, never sent stale.
+ */
+export async function deliverDue(db: Db, userId: string, now: number, send: Sender = webPushSender): Promise<DeliverResult> {
   const user = await getUser(db, userId);
   const due = (await db.query(
-    `select * from notifications where user_id=$1 and status='PENDING' and scheduled_for <= $2 order by scheduled_for`,
+    `select * from notifications where user_id=$1 and status='PENDING' and scheduled_for <= $2 order by scheduled_for for update skip locked`,
     [userId, new Date(now)],
   )).rows;
   const subs = (await db.query('select * from push_subscriptions where user_id=$1', [userId])).rows;
   const out: DeliverResult = { due: due.length, delivered: 0, skipped: 0, failed: 0 };
-  const canPush = initPush();
+  const canPush = send !== webPushSender || pushConfigured();
 
   for (const n of due) {
     const contest = n.payload_json?.contestId ? await contestLite(db, n.payload_json.contestId) : null;
@@ -101,7 +123,7 @@ export async function deliverDue(db: Db, userId: string, now: number): Promise<D
     if (canPush) {
       for (const s of subs) {
         try {
-          await webpush.sendNotification({ endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } }, payload);
+          await send({ endpoint: s.endpoint, p256dh: s.p256dh, auth: s.auth }, payload);
           sent++;
         } catch (e: any) {
           if (e?.statusCode === 404 || e?.statusCode === 410) await db.query('delete from push_subscriptions where id=$1', [s.id]);

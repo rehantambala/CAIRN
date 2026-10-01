@@ -40,7 +40,7 @@ describe('LeetCode adapter', () => {
     expect(parseLeetCode(lc(10, null)).totals).toEqual({ problems: 10, contests: 0, rating: null });
   });
   it('rejects unknown handles and malformed payloads', () => {
-    expect(() => parseLeetCode({ data: { matchedUser: null } })).toThrow(/no public profile/);
+    expect(() => parseLeetCode({ data: { matchedUser: null } })).toThrow(/no public profile/i);
     expect(() => parseLeetCode({ errors: [{ message: 'rate limited' }] })).toThrow(/rate limited/);
     expect(() => parseLeetCode({ nonsense: 1 })).toThrow();
   });
@@ -59,7 +59,7 @@ describe('live sync of LeetCode and CodeChef', () => {
   const uidOf = async () => (await pool.query('select id from users')).rows[0].id as string;
 
   it('replaces the baseline with the platform totals and recalculates the score exactly', async () => {
-    await pool.query(`update platform_accounts set username='tester' where platform='leetcode'`);
+    await pool.query(`update platform_accounts set username='tester', connection_status='CONNECTED' where platform='leetcode'`);
     const uid = await uidOf();
     const before = (await loadScore(pool, uid)).score;
     expect(before.overall).toBe(12604);
@@ -78,7 +78,7 @@ describe('live sync of LeetCode and CodeChef', () => {
   });
 
   it('is idempotent and does not double count', async () => {
-    await pool.query(`update platform_accounts set username='tester' where platform='leetcode'`);
+    await pool.query(`update platform_accounts set username='tester', connection_status='CONNECTED' where platform='leetcode'`);
     const uid = await uidOf();
     const adapter = createLeetCodeAdapter(async () => lc(75, 1401));
     await syncPlatform(uid, 'leetcode', NOW, adapter);
@@ -88,7 +88,7 @@ describe('live sync of LeetCode and CodeChef', () => {
   });
 
   it('counts a newly accepted problem once: the platform total moves by one', async () => {
-    await pool.query(`update platform_accounts set username='tester' where platform='leetcode'`);
+    await pool.query(`update platform_accounts set username='tester', connection_status='CONNECTED' where platform='leetcode'`);
     const uid = await uidOf();
     await syncPlatform(uid, 'leetcode', NOW, createLeetCodeAdapter(async () => lc(75, 1401)));
     const a = (await loadScore(pool, uid)).score.overall;
@@ -97,7 +97,7 @@ describe('live sync of LeetCode and CodeChef', () => {
   });
 
   it('syncs CodeChef totals and leaves every other platform untouched', async () => {
-    await pool.query(`update platform_accounts set username='tester' where platform='codechef'`);
+    await pool.query(`update platform_accounts set username='tester', connection_status='CONNECTED' where platform='codechef'`);
     const uid = await uidOf();
     const r = await syncPlatform(uid, 'codechef', NOW, createCodeChefAdapter(async () => ccPage(131, 1187, 19)));
     expect(r.ok).toBe(true);
@@ -110,7 +110,7 @@ describe('live sync of LeetCode and CodeChef', () => {
   });
 
   it('keeps the stored figures and reports ERROR when the platform cannot be read', async () => {
-    await pool.query(`update platform_accounts set username='tester' where platform='codechef'`);
+    await pool.query(`update platform_accounts set username='tester', connection_status='CONNECTED' where platform='codechef'`);
     const uid = await uidOf();
     const r = await syncPlatform(uid, 'codechef', NOW, createCodeChefAdapter(async () => '<html>blocked</html>'));
     expect(r.ok).toBe(false);

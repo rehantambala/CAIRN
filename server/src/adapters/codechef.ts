@@ -1,4 +1,5 @@
 import type { PlatformAdapter, Profile, Totals } from './types.js';
+import { ProfileNotFound } from './types.js';
 
 /**
  * CodeChef publishes no official interface for personal statistics. This adapter reads your public
@@ -13,7 +14,7 @@ const defaultHtml: Html = async (handle) => {
     redirect: 'follow',
     signal: AbortSignal.timeout(20_000),
   });
-  if (res.status === 404) throw new Error('CodeChef: no public profile with that handle');
+  if (res.status === 404) throw new ProfileNotFound('codechef', handle);
   if (!res.ok) throw new Error(`CodeChef HTTP ${res.status}`);
   return res.text();
 };

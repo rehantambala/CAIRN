@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { ago } from '../format';
 import { useReveal } from '../hooks';
 import { Mark } from './Mark';
-import type { SourceState } from '../api';
+import type { Connection, SourceState } from '../api';
 
 export function Loading({ label = 'Retrieving your position' }: { label?: string }) {
   // A free server sleeps when idle. After a few seconds the wait is explained rather than left unexplained.
@@ -42,6 +42,17 @@ export function Empty({ title, children }: { title: string; children?: ReactNode
 }
 
 const SOURCE_WORD: Record<SourceState, string> = { LIVE: 'Live', SYNCED: 'Synced', IMPORTED: 'Imported', MANUAL: 'Manual', STALE: 'Stale', ERROR: 'Error' };
+
+const CONNECTION_WORD: Record<Connection, string> = {
+  NOT_CONNECTED: 'Not connected', PENDING_VERIFICATION: 'Pending verification', LIVE: 'Live', SYNCED: 'Synced',
+  STALE: 'Stale', ERROR: 'Error', MANUAL: 'Manual', UNAVAILABLE: 'Unavailable',
+};
+const CONNECTION_STYLE: Record<Connection, SourceState> = {
+  NOT_CONNECTED: 'MANUAL', PENDING_VERIFICATION: 'STALE', LIVE: 'LIVE', SYNCED: 'SYNCED', STALE: 'STALE', ERROR: 'ERROR', MANUAL: 'MANUAL', UNAVAILABLE: 'STALE',
+};
+export function ConnectionChip({ c }: { c: Connection }) {
+  return <span className="chip" data-s={CONNECTION_STYLE[c]}>{CONNECTION_WORD[c]}</span>;
+}
 
 export function SourceChip({ status, updatedAt, now }: { status: SourceState; updatedAt?: string | null; now?: number }) {
   return (

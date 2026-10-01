@@ -13,7 +13,7 @@ import { BRAND } from '../brand';
 interface TrajPayload {
   trajectory: Trajectory; series: { day: string; score: number }[]; target: number; targetDate: string | null;
   milestones: { value: number; reached: boolean }[];
-  reachability: { current: number; projected: number; gained: number; gap: number; coveredShare: number; stillNeeded: number; fixedShareOfCurrent: number };
+  reachability: { current: number; projected: number; gained: number; gap: number; coveredShare: number; stillNeeded: number; fixedShareOfCurrent: number; targets: Partial<Record<'leetcode' | 'codechef' | 'codeforces', number>> };
 }
 interface ScorePayload { overall: number; components: RatedComponent[]; manual: ManualComponent[]; inputs: ScoreInputs; target: number; remaining: number; sources: Source[] }
 interface Analytics { velocity: { day: string; gain: number }[]; contribution: { label: string; value: number }[] }
@@ -28,6 +28,9 @@ export function Path() {
   if (err) return <ErrorBanner error={err} retry={() => { void traj.reload(); void score.reload(); }} />;
   if (traj.loading || score.loading || !traj.data || !score.data) return <Loading />;
   const d = traj.data, s = score.data, t = d.trajectory;
+  const LABEL = { leetcode: 'LeetCode', codechef: 'CodeChef', codeforces: 'Codeforces' } as const;
+  const parts = (Object.entries(d.reachability.targets) as [keyof typeof LABEL, number][]).map(([p, r]) => `${LABEL[p]} ${s.inputs[p].rating} → ${r}`);
+  const scenario = parts.length === 0 ? null : parts.length === 1 ? parts[0] : `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`;
   const g = gradient(t.current, d.milestones.find((m) => !m.reached)?.value ?? null, t.target);
   const n = (v: number | null, dp = 0) => (v === null ? '—' : v.toFixed(dp));
   const total = (an.data?.contribution ?? []).reduce((a, c) => a + c.value, 0);
@@ -82,7 +85,7 @@ export function Path() {
           {d.milestones.map((m) => (
             <li key={m.value} className="ledger__row">
               <span className="ledger__k">{shortK(m.value)}</span>
-              <span className="ledger__v">{m.value === 25000 ? 'The minimum target. Tracking continues beyond it.' : ''}</span>
+              <span className="ledger__v">{m.value === d.target ? 'Your objective. Tracking continues beyond it.' : ''}</span>
               <span className="state">{m.reached ? '✓ Reached' : `${fmt(m.value - t.current)} points remain`}</span>
             </li>
           ))}
@@ -144,17 +147,17 @@ export function Path() {
         <div style={{ marginTop: 'var(--space-9)' }}><Simulator base={s.inputs} target={s.target} /></div>
       </Section>
 
-      <Section kicker="Closing the gap" tone="ink">
+      {scenario && <Section kicker="Closing the gap" tone="ink">
         <div className="grid-2">
           <div>
-            <p className="lead">Were your ratings to reach 1570, 1400 and 920, your score would be</p>
+            <p className="lead">Were your ratings to rise as follows ({scenario}), your score would be</p>
             <p className="display fig-hero mark" style={{ marginTop: 'var(--space-5)' }}>{fmt(d.reachability.projected)}</p>
           </div>
           <div style={{ alignSelf: 'end' }}>
             <p className="body">That would cover {Math.round(d.reachability.coveredShare * 100)} per cent of the remaining {fmt(d.reachability.gap)} points. It is a scenario, not a forecast: whether those ratings are reached is the uncertain element.</p>
           </div>
         </div>
-      </Section>
+      </Section>}
 
       <Section kicker="The formula" tone="deep">
         <details className="formula">

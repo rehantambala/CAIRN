@@ -4,7 +4,7 @@ import { deliverDue, scheduleAll, scheduleMissed } from './notify.js';
 import { refreshAfterChange } from './pipeline.js';
 import { discoverContests, syncPlatform } from './sync.js';
 import { refreshPool } from './pool.js';
-import { ensureAccounts } from './accounts.js';
+import { ensureAccounts, retryPending } from './accounts.js';
 import { AUTOMATIC_PLATFORMS } from '../adapters/index.js';
 
 export const JOB_NAMES = ['pool', 'contests', 'sync', 'rollover', 'notify'] as const;
@@ -28,10 +28,11 @@ export async function runJob(name: JobName, now = Date.now()): Promise<Record<st
     case 'sync': {
       const out: unknown[] = [];
       for (const u of await users()) {
-        try { await ensureAccounts(u, now); } catch { /* discovery is best effort */ }
+        try { await ensureAccounts(u, now); } catch { /* housekeeping is best effort */ }
+        try { out.push(...(await retryPending(u, now))); } catch { /* retried next run */ }
         // Every platform with an automatic adapter and a saved handle. One failing platform never blocks the others.
         for (const p of AUTOMATIC_PLATFORMS) {
-          const connected = (await pool.query(`select 1 from platform_accounts where user_id=$1 and platform=$2 and username <> ''`, [u, p])).rowCount;
+          const connected = (await pool.query(`select 1 from platform_accounts where user_id=$1 and platform=$2 and username <> '' and connection_status='CONNECTED'`, [u, p])).rowCount;
           if (!connected) continue;
           try { out.push(await syncPlatform(u, p, now)); }
           catch (e: any) { out.push({ platform: p, ok: false, message: String(e?.message ?? e) }); }

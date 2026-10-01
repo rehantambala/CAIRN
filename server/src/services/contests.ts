@@ -11,19 +11,22 @@ export interface ContestInput {
   registrationUrl?: string | null;
   contestUrl?: string | null;
   rated?: boolean;
+  /** which source confirmed this contest (codeforces-api, leetcode, codechef, clist, file) */
+  source?: string;
 }
 
 /** Upsert by (platform, external id). Returns the row id and whether it was new. */
 export async function upsertContest(db: Db, userId: string | null, c: ContestInput): Promise<{ id: string; isNew: boolean }> {
   const r = await db.query(
-    `insert into contests(platform, external_contest_id, title, start_at, end_at, registration_url, contest_url, rated)
-     values ($1,$2,$3,$4,$5,$6,$7,$8)
+    `insert into contests(platform, external_contest_id, title, start_at, end_at, registration_url, contest_url, rated, source, last_verified_at)
+     values ($1,$2,$3,$4,$5,$6,$7,$8,$9, case when $9::text is not null then now() end)
      on conflict (platform, external_contest_id) do update set
        title = excluded.title, start_at = excluded.start_at, end_at = excluded.end_at,
        registration_url = coalesce(excluded.registration_url, contests.registration_url),
-       contest_url = coalesce(excluded.contest_url, contests.contest_url), rated = excluded.rated
+       contest_url = coalesce(excluded.contest_url, contests.contest_url), rated = excluded.rated,
+       source = coalesce(excluded.source, contests.source), last_verified_at = coalesce(excluded.last_verified_at, contests.last_verified_at)
      returning id, (xmax = 0) as inserted`,
-    [c.platform, c.externalContestId, c.title, c.startAt, c.endAt, c.registrationUrl ?? null, c.contestUrl ?? null, c.rated ?? true],
+    [c.platform, c.externalContestId, c.title, c.startAt, c.endAt, c.registrationUrl ?? null, c.contestUrl ?? null, c.rated ?? true, c.source ?? null],
   );
   const { id, inserted } = r.rows[0];
   if (inserted && userId) await recordEvent(db, userId, 'CONTEST_DISCOVERED', c.platform, id, { title: c.title, startAt: c.startAt });

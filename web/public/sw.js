@@ -1,5 +1,5 @@
 /* CAIRN service worker: offline shell + push with deep links. */
-const CACHE = 'cairn-shell-v1';
+const CACHE = 'cairn-shell-v2';
 const SHELL = ['/', '/manifest.webmanifest', '/icon.svg'];
 
 self.addEventListener('install', (e) => {
@@ -34,7 +34,7 @@ self.addEventListener('fetch', (e) => {
 });
 
 self.addEventListener('push', (e) => {
-  let data = { title: 'CAIRN', body: '', url: '/today' };
+  let data = { title: 'CAIRN', body: '', url: '/' };
   try { data = { ...data, ...e.data.json() }; } catch (_) {}
   e.waitUntil(self.registration.showNotification(data.title, {
     body: data.body, icon: '/icon-192.png', badge: '/icon-192.png', data: { url: data.url }, tag: data.url,
@@ -43,7 +43,7 @@ self.addEventListener('push', (e) => {
 
 self.addEventListener('notificationclick', (e) => {
   e.notification.close();
-  const target = (e.notification.data && e.notification.data.url) || '/today';
+  const target = (e.notification.data && e.notification.data.url) || '/';
   e.waitUntil(
     self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
       for (const c of list) {
