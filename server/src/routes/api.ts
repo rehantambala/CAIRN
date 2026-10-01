@@ -177,20 +177,7 @@ api.post('/sync/:platform', syncLimit, wrap(async (req, res) => {
   res.json(await requestSync(uid(req), platform));
 }));
 
-/** Connect a coding profile: verified with the platform where it can be, recorded as stated where it cannot. */
-api.post('/profiles/:platform', profileLimit, wrap(async (req, res) => {
-  const platform = platformSchema.parse(req.params.platform);
-  const { handle } = z.object({ handle: z.string().trim().min(1).max(80) }).strict().parse(req.body);
-  const r = await connectProfile(pool, uid(req), platform, handle);
-  res.status(r.ok ? 200 : r.state === 'NOT_FOUND' ? 404 : 400).json(r);
-}));
-
-/** Disconnect: synchronisation stops; history and figures are kept. */
-api.delete('/profiles/:platform', writeLimit, wrap(async (req, res) => {
-  await disconnectProfile(pool, uid(req), platformSchema.parse(req.params.platform));
-  res.json({ ok: true });
-}));
-
+// Fixed paths must be registered before '/profiles/:platform', or Express matches 'discover' and 'detect' as a platform.
 /** Paste any profile addresses: each recognised handle is verified and connected. Nothing is assumed. */
 api.post('/profiles/discover', profileLimit, wrap(async (req, res) => {
   const { text } = z.object({ text: z.string().max(5000) }).strict().parse(req.body ?? {});
@@ -203,6 +190,20 @@ api.post('/profiles/discover', profileLimit, wrap(async (req, res) => {
 /** Reads the signed-in user's public GitHub profile and suggests handles; nothing is connected. */
 api.post('/profiles/detect', profileLimit, wrap(async (req, res) => {
   res.json({ detected: await detectFromGitHub(pool, uid(req)) });
+}));
+
+/** Connect a coding profile: verified with the platform where it can be, recorded as stated where it cannot. */
+api.post('/profiles/:platform', profileLimit, wrap(async (req, res) => {
+  const platform = platformSchema.parse(req.params.platform);
+  const { handle } = z.object({ handle: z.string().trim().min(1).max(80) }).strict().parse(req.body);
+  const r = await connectProfile(pool, uid(req), platform, handle);
+  res.status(r.ok ? 200 : r.state === 'NOT_FOUND' ? 404 : 400).json(r);
+}));
+
+/** Disconnect: synchronisation stops; history and figures are kept. */
+api.delete('/profiles/:platform', writeLimit, wrap(async (req, res) => {
+  await disconnectProfile(pool, uid(req), platformSchema.parse(req.params.platform));
+  res.json({ ok: true });
 }));
 
 const importSchema = z.object({

@@ -692,6 +692,10 @@ describe('input validation, injection and XSS', () => {
     expect((await c.put('/api/settings', '{"targetScore": ')).json.error).toBe('INVALID_JSON');
     expect((await c.post('/api/profiles/discover', { text: 'x'.repeat(2_000_000) })).status).toBe(413);
     expect((await c.post('/api/profiles/discover', { text: 'x'.repeat(5001) })).status).toBe(400);
+    // Regression: 'discover' must reach its own handler, not be parsed as a platform name (which gave a bare 400).
+    const found = await c.post('/api/profiles/discover', { text: 'nothing recognisable here' });
+    expect(found.status).toBe(200);
+    expect(found.json.results).toEqual([]);
     expect((await c.put('/api/settings', { displayName: 'n'.repeat(61) })).status).toBe(400);
     expect((await c.put('/api/settings', { displayName: 'bad\u0000name' })).status).toBe(400);
     expect((await c.put('/api/settings', { targetScore: -1 })).status).toBe(400);
