@@ -258,6 +258,22 @@ describe('CSRF, CORS and security headers', () => {
     expect(prod['Content-Security-Policy']).toContain('upgrade-insecure-requests');
   });
 
+  it('serves only the configured Google verification file, and nothing else that looks like one', async () => {
+    const prev = config.googleSiteVerification;
+    try {
+      config.googleSiteVerification = '';
+      expect((await client().get('/google1a2b3c4d5e6f7890.html')).text).not.toMatch(/site-verification/);
+      config.googleSiteVerification = 'google1a2b3c4d5e6f7890';
+      const ok = await client().get('/google1a2b3c4d5e6f7890.html');
+      expect(ok.status).toBe(200);
+      expect(ok.text).toBe('google-site-verification: google1a2b3c4d5e6f7890.html');
+      // Any other name falls through to the application, never to a second verification file.
+      for (const p of ['/google0000000000000000.html', '/googleabcdef12.html', '/google1a2b3c4d5e6f7890.html.html']) {
+        expect((await client().get(p)).text, p).not.toMatch(/site-verification/);
+      }
+    } finally { config.googleSiteVerification = prev; }
+  });
+
   it('the privacy contact is public, optional, and only ever a plain email address', async () => {
     const prev = config.supportEmail;
     try {

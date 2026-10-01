@@ -33,6 +33,11 @@ export const config = {
 
   /** Public contact address shown on the privacy and terms pages. Optional. */
   supportEmail: env('SUPPORT_EMAIL'),
+  /**
+   * Google Search Console site-verification token, e.g. google1a2b3c4d5e6f7890 (with or without the .html).
+   * Serving it proves this deployment is ours, which Google requires before an OAuth consent screen is published.
+   */
+  googleSiteVerification: env('GOOGLE_SITE_VERIFICATION').replace(/\.html$/i, ''),
 
   vapidPublic: env('VAPID_PUBLIC_KEY'),
   vapidPrivate: env('VAPID_PRIVATE_KEY'),

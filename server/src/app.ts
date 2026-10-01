@@ -7,7 +7,7 @@ import { api } from './routes/api.js';
 import { authRouter } from './routes/auth.js';
 import { oauthRouter } from './routes/oauth.js';
 import { jobsRouter } from './routes/jobs.js';
-import { corsOptions, csrfGuard, errorHandler, httpsOnly, limiter, requestLog, securityHeaders } from './routes/security.js';
+import { corsOptions, csrfGuard, errorHandler, httpsOnly, limiter, requestLog, routeOf, securityHeaders } from './routes/security.js';
 
 /** The API, and optionally the built frontend from `staticDir`, with the error handler last. */
 export function createApp(staticDir?: string) {
@@ -28,6 +28,16 @@ export function createApp(staticDir?: string) {
   // Public, no account needed: the contact address for the privacy and terms pages.
   app.get('/api/public/info', (_req, res) => {
     res.json({ contact: /^[^\s@<>"']+@[^\s@<>"']+\.[a-z]{2,}$/i.test(config.supportEmail) ? config.supportEmail : null });
+  });
+  /**
+   * Google Search Console verification. Google asks for a file named google<token>.html whose body is
+   * "google-site-verification: google<token>.html". The token comes from configuration and is strictly
+   * validated, so this route can only ever serve that one file name and never anything else.
+   */
+  app.get(/^\/google[0-9a-f]{8,32}\.html$/i, (req, res, next) => {
+    const token = config.googleSiteVerification;
+    if (!/^google[0-9a-f]{8,32}$/i.test(token) || routeOf(req).toLowerCase() !== `/${token.toLowerCase()}.html`) return next();
+    res.type('text/html').send(`google-site-verification: ${token}.html`);
   });
   app.use('/api/auth', oauthRouter);
   app.use('/api/auth', authRouter);
