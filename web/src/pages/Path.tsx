@@ -125,6 +125,7 @@ export function Path() {
                     <div><dt>From contests</dt><dd>{fmt(c.parts.contests)}</dd></div>
                     <div><dt>A rise of 25 in rating adds</dt><dd>{signed(c.marginal.ratingPlus25)}</dd></div>
                     <div><dt>A rise of 100 in rating adds</dt><dd>{signed(c.marginal.ratingPlus100)}</dd></div>
+                    {c.marginal.contestsToRating > 0 && <div><dt>Contests before the rating counts at all</dt><dd>{c.marginal.contestsToRating}</dd></div>}
                     {c.marginal.ratingToThreshold > 0 && <div><dt>Rating points before gains begin to score</dt><dd>{c.marginal.ratingToThreshold}</dd></div>}
                   </dl>
                 )}
@@ -180,7 +181,7 @@ export function Path() {
             <p className="lead"><strong>LeetCode</strong> = problems × 10 + (max(0, rating − 1300))² ÷ 10 + contests × 50</p>
             <p className="lead"><strong>CodeChef</strong> = problems × 2 + (max(0, rating − 1200))² ÷ 10 + contests × 50</p>
             <p className="lead"><strong>Codeforces</strong> = problems × 2 + (max(0, rating − 800))² ÷ 10 + contests × 50</p>
-            <p className="body">Each platform total is rounded down. The rating term is zero at or below its baseline. Smart Interviews, InterviewBit and HackerRank are added as entered.</p>
+            <p className="body">Each platform total is rounded down. The rating term is zero at or below its baseline, and it counts only from the third contest: with one or two contests, a platform scores its problems and contests alone. Smart Interviews, InterviewBit and HackerRank are added as entered.</p>
           </div>
         </details>
       </Section>

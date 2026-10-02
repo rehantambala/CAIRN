@@ -72,7 +72,7 @@ export function scoreView(loaded: Awaited<ReturnType<typeof loadScore>>) {
     platform: p, label: PLATFORM_LABEL[p], total: score[p].total,
     problems: inputs[p].problems, rating: inputs[p].rating, contests: inputs[p].contests,
     parts: { problems: score[p].problemsPoints, rating: Math.floor(score[p].ratingPoints), contests: score[p].contestPoints },
-    marginal: marginal(p, inputs[p].rating), source: source(p),
+    marginal: marginal(p, inputs[p].rating, inputs[p].contests), source: source(p),
   });
   const manual = (p: 'smartinterviews' | 'interviewbit' | 'hackerrank') => ({
     platform: p, label: PLATFORM_LABEL[p], total: score[p], source: source(p),

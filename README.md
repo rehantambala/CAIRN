@@ -45,6 +45,7 @@ CURRENT STATE → TRAJECTORY → TODAY'S EXECUTION → NEXT → verified complet
 - **Honest verification.** Work is *verified* only when a platform's own data confirms it. Anything entered by hand is labelled *manual*.
 - **Contests and reminders.** Upcoming contests from each platform's own listing, with Web Push reminders at 24 h, 1 h, 10 min and at close, in your timezone. Moved or cancelled contests are followed. A private calendar link, and a download for any single contest, place the same alerts in the calendar on your phone or computer.
 - **After the target.** Once your score passes its target, the briefing offers a successor target drawn from your own figures, with the research behind it, and lets you keep the present one.
+- **Leaderboard import.** Export your Smart Interviews leaderboard and choose the file in Preferences: CAIRN reads your row in the browser and sets all six platforms exactly as the leaderboard has them, after showing what would change. HackerRank, InterviewBit and Smart Interviews reach the score only this way.
 - **Leaderboard check.** Compare your Smart Interviews row with CAIRN platform by platform; the three manual platforms are entered in the leaderboard's own columns.
 - **Log.** Calendar, earned awards and contest history.
 - **Optional strategist.** An AI advisor that reads verified figures only. It has no tools and no write path.

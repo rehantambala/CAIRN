@@ -25,6 +25,9 @@ import { isAllowedPushEndpoint, PUSH_KEY_RE } from '../domain/pushEndpoint.js';
 import { deleteAccount, exportAccount } from '../services/account.js';
 import { requestSync } from '../services/syncGate.js';
 import { closePastDays, applyCommitmentToToday } from '../services/derived.js';
+import { applyFigures } from '../services/figures.js';
+import { LeaderboardFormatError, parseLeaderboardRow } from '../domain/leaderboard.js';
+import { computeScore } from '../domain/score.js';
 import { contestCalendar, createFeedToken, feedStatus, revokeFeed } from '../services/calendarFeed.js';
 
 export const api = Router();
@@ -223,30 +226,67 @@ const importSchema = z.object({
  */
 api.post('/import', writeLimit, wrap(async (req, res) => {
   const b = importSchema.parse(req.body);
-  const status = b.contribution !== undefined && !['leetcode', 'codechef', 'codeforces'].includes(b.platform) ? 'MANUAL' : 'IMPORTED';
-  await tx(async (c) => {
-    const now = new Date();
-    await c.query(
-      `insert into platform_stats(user_id, platform, base_as_of, source_status, source_note, last_updated_at)
-       values ($1,$2,$3,$4,$5,$3) on conflict (user_id, platform) do nothing`, [uid(req), b.platform, now, status, b.note ?? null],
-    );
-    if (b.problemsSolved !== undefined || b.contests !== undefined) {
-      // Re-baseline: the imported totals are authoritative as of now.
-      await rebaseline(c, uid(req), b.platform, { problems: b.problemsSolved, contests: b.contests }, now);
-    }
-    if (b.contribution !== undefined) await c.query('update platform_stats set contribution=$3 where user_id=$1 and platform=$2', [uid(req), b.platform, b.contribution]);
-    await c.query('update platform_stats set source_status=$3, source_note=$4, last_updated_at=$5 where user_id=$1 and platform=$2', [uid(req), b.platform, status, b.note ?? null, now]);
-    if (b.rating !== undefined) await recordRating(c, uid(req), b.platform, b.rating, now, null);
-    for (const s of b.solved ?? []) {
-      // Historic ids are remembered (never re-suggested, never double counted) unless a real timestamp is given.
-      await import('../services/pipeline.js').then((m) => m.ingestAccepted(c, uid(req), {
-        platform: b.platform, externalProblemId: s.id, acceptedAt: s.acceptedAt ? new Date(s.acceptedAt) : new Date(0), source: 'IMPORT',
-      }));
-    }
+  const status = await tx(async (c) => {
+    const st = await applyFigures(c, uid(req), b);
     await recordEvent(c, uid(req), 'PLATFORM_SYNCED', b.platform, null, { import: true });
     await refreshAfterChange(c, uid(req), Date.now(), `import:${b.platform}`);
+    return st;
   });
   res.json({ ok: true, status });
+}));
+
+// Smart Interviews leaderboard export: the person's own row, read from the file they exported. The browser sends only
+// the two header rows and that one row; the server finds the columns by name, checks the row against its own
+// arithmetic, and (for "apply") sets every platform's figures in one step.
+const lbCell = z.union([z.string().max(300), z.number(), z.null()]);
+const lbSchema = z.object({
+  header: z.tuple([z.array(lbCell).max(150), z.array(lbCell).max(150)]),
+  row: z.array(lbCell).max(150),
+  exportedOn: isoDate.optional(),
+}).strict();
+
+async function leaderboardPreview(req: Request) {
+  const b = lbSchema.parse(req.body);
+  let parsed;
+  try { parsed = parseLeaderboardRow(b.header[0], b.header[1], b.row); } catch (e) {
+    if (e instanceof LeaderboardFormatError) throw Object.assign(new Error(e.message), { leaderboard: true });
+    throw e;
+  }
+  const current = await loadScore(pool, uid(req));
+  const computed = computeScore(parsed.figures).overall;
+  return {
+    b, parsed, computed,
+    preview: {
+      person: parsed.person, leaderboard: parsed.figures, parts: parsed.parts, current: current.inputs,
+      sheetOverall: parsed.sheetOverall, computedOverall: computed, currentOverall: current.score.overall,
+      // The sheet's own total and the formula must agree, or the sheet is not the one this formula describes.
+      sheetAgrees: parsed.sheetOverall === null ? null : parsed.sheetOverall === computed,
+    },
+  };
+}
+const lbFail = (res: Response, e: any) => e?.leaderboard ? res.status(422).json({ error: 'LEADERBOARD_FORMAT', message: e.message }) : null;
+
+api.post('/leaderboard/preview', writeLimit, wrap(async (req, res) => {
+  try { res.json((await leaderboardPreview(req)).preview); } catch (e: any) { if (!lbFail(res, e)) throw e; }
+}));
+
+api.post('/leaderboard/apply', writeLimit, wrap(async (req, res) => {
+  let r;
+  try { r = await leaderboardPreview(req); } catch (e: any) { if (lbFail(res, e)) return; throw e; }
+  const f = r.parsed.figures;
+  const note = `From the Smart Interviews leaderboard${r.b.exportedOn ? `, exported ${r.b.exportedOn}` : ''}`.slice(0, 200);
+  await tx(async (c) => {
+    for (const p of RATED_PLATFORMS) {
+      await applyFigures(c, uid(req), { platform: p, problemsSolved: f[p].problems, contests: f[p].contests, rating: f[p].rating, note });
+    }
+    for (const p of ['hackerrank', 'smartinterviews', 'interviewbit'] as const) {
+      await applyFigures(c, uid(req), { platform: p, contribution: f[p], note });
+    }
+    await recordEvent(c, uid(req), 'PLATFORM_SYNCED', null, null, { leaderboardImport: true, exportedOn: r.b.exportedOn ?? null });
+    await refreshAfterChange(c, uid(req), Date.now(), 'import:leaderboard');
+  });
+  const after = await loadScore(pool, uid(req));
+  res.json({ ok: true, overall: after.score.overall, ...r.preview, currentOverall: after.score.overall, current: after.inputs });
 }));
 
 api.post('/codeforces/derive-from-history', writeLimit, wrap(async (req, res) => {

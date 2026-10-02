@@ -3,12 +3,19 @@ import type { RatedPlatform } from './types.js';
 /**
  * Smart Interviews-style score engine. Pure and deterministic. No I/O, no LLM.
  *
- * The rating term is clamped at zero below the platform baseline. The user's
- * published numbers only reconcile with the clamp (CodeChef 125 problems,
- * rating 1135, 17 contests = 1,100, not 1,522). If the clamp is ever disproved,
- * change CLAMP_RATING_TERM_AT_ZERO only.
+ * Two rules on the rating term, both read from the leaderboard itself.
+ *
+ * 1. It is clamped at zero below the platform baseline (CodeChef 1,153 against 1,200 scores nothing from rating).
+ * 2. It counts only from the third contest. In the 2 October 2026 export of 205 rows, every row with one or two
+ *    contests scores its problems and contests alone, however high its rating (LeetCode 8 problems, rating 1,468,
+ *    1 contest = 130, not 2,952), and every row with three or more includes the term. Codeforces follows the same
+ *    published formula; no row in that export has a Codeforces rating above its baseline with fewer than three
+ *    contests, so for Codeforces the rule is inferred, not observed.
+ *
+ * If either rule is ever disproved, change CLAMP_RATING_TERM_AT_ZERO or MIN_CONTESTS_FOR_RATING only.
  */
 export const CLAMP_RATING_TERM_AT_ZERO = true;
+export const MIN_CONTESTS_FOR_RATING = 3;
 
 export const TARGET_MIN = 25_000;
 
@@ -39,7 +46,9 @@ export interface RatedBreakdown {
   total: number;
 }
 
-export function ratingTerm(platform: RatedPlatform, rating: number): number {
+/** `contests` defaults to a count that qualifies, so that a hypothetical rating change is judged as it would score once the term applies. */
+export function ratingTerm(platform: RatedPlatform, rating: number, contests: number = MIN_CONTESTS_FOR_RATING): number {
+  if (contests < MIN_CONTESTS_FOR_RATING) return 0;
   const base = PLATFORM_RULES[platform].ratingBase;
   const d = CLAMP_RATING_TERM_AT_ZERO ? Math.max(0, rating - base) : rating - base;
   return (d * d) / 10;
@@ -48,7 +57,7 @@ export function ratingTerm(platform: RatedPlatform, rating: number): number {
 export function ratedBreakdown(platform: RatedPlatform, i: RatedInputs): RatedBreakdown {
   const r = PLATFORM_RULES[platform];
   const problemsPoints = i.problems * r.perProblem;
-  const ratingPoints = ratingTerm(platform, i.rating);
+  const ratingPoints = ratingTerm(platform, i.rating, i.contests);
   const contestPoints = i.contests * r.perContest;
   return {
     problemsPoints,
@@ -95,17 +104,20 @@ export interface Marginal {
   perContest: number;
   /** points needed rating-wise until the clamp releases; 0 if already above */
   ratingToThreshold: number;
+  /** contests still to attend before the rating term counts at all; 0 once there are three */
+  contestsToRating: number;
   /** effect of +25 and +100 rating from the current value (hypothetical) */
   ratingPlus25: number;
   ratingPlus100: number;
 }
 
-export function marginal(platform: RatedPlatform, rating: number): Marginal {
+export function marginal(platform: RatedPlatform, rating: number, contests: number = MIN_CONTESTS_FOR_RATING): Marginal {
   const r = PLATFORM_RULES[platform];
   return {
     perProblem: r.perProblem,
     perContest: r.perContest,
     ratingToThreshold: Math.max(0, r.ratingBase - rating),
+    contestsToRating: Math.max(0, MIN_CONTESTS_FOR_RATING - contests),
     ratingPlus25: ratingEffect(platform, rating, rating + 25),
     ratingPlus100: ratingEffect(platform, rating, rating + 100),
   };

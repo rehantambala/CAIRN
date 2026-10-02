@@ -1,6 +1,6 @@
 # Decisions and assumptions to confirm
 
-1. **Zero clamp on the rating term: confirmed.** `max(0, rating − baseline)²/10`. The Smart Interviews leaderboard exported on 2 October 2026 reproduces to the point under this rule for every platform in the author's row (CodeChef: 128 problems, rating 1,153 against a baseline of 1,200, 18 contests = 1,156; unclamped it would be 1,377). The clamp remains one constant in `domain/score.ts`, and a regression test (`LEADERBOARD_2026_10_02`) holds the full row: 13,200.
+1. **Zero clamp on the rating term: confirmed.** `max(0, rating − baseline)²/10`. The Smart Interviews leaderboard exported on 2 October 2026 reproduces to the point under this rule for every platform in the author's row (CodeChef: 128 problems, rating 1,153 against a baseline of 1,200, 18 contests = 1,156; unclamped it would be 1,377). The clamp remains one constant in `domain/score.ts`, and a regression test (`LEADERBOARD_2026_10_02`) holds the full row: 13,200. **A second rule, read from the same export:** the rating term counts only from the third contest. In all 205 rows of the 2 October 2026 export, a row with one or two contests scores problems and contests alone however high its rating (LeetCode 8 problems, rating 1,468, 1 contest = 130), and every row with three or more includes the term; with both rules the formula reproduces the sheet's overall score for every row where the sheet's own columns are complete. For Codeforces the rule is inferred, because no row has a Codeforces rating above 800 with fewer than three contests. It is the constant `MIN_CONTESTS_FOR_RATING`.
 2. **Rounding.** Each platform total is floored (matches 2,102 and 392).
 3. **Smart Interviews, InterviewBit, HackerRank** are recorded contributions (manual or imported). No formula is invented. They are 71% of the current score; the UI says so.
 4. **Automatic verification is real only for Codeforces** (official API). LeetCode and CodeChef have no approved automatic route for personal submissions, so they use import plus a labelled MANUAL fallback. A day of only manual items is COMPLETE · MANUAL, never VERIFIED.
@@ -31,3 +31,7 @@
     The satisfaction of arrival is also known to fade quickly (hedonic adaptation), which is why the prompt appears at once rather than after a lapse.
 14. **Links never lead to the page already open.** The briefing's "go to today's list" scrolls to the list; "Prepare with practice" opens Practice; the completed-day
     action opens the Record directly rather than through the retired `/calendar` address.
+15. **Leaderboard export as the source for the three manual platforms.** HackerRank, InterviewBit and Smart Interviews have no permissible public route
+    (see docs/DATA_SOURCES.md), so the export of the leaderboard is the way their figures reach the score exactly. It is read in the browser, only the
+    person's row is sent, a preview shows every change, and the row is checked against the formula before it can be applied. Connected platforms continue to be
+    read live afterwards, so they can run ahead of a leaderboard that has not yet refreshed.

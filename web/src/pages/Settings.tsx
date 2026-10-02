@@ -4,6 +4,7 @@ import { del, get, post, put, type Platform, type Source } from '../api';
 import { BRAND } from '../brand';
 import { ago } from '../format';
 import { useFetch, useNow } from '../hooks';
+import { LeaderboardImport } from '../components/LeaderboardImport';
 import { ConnectionChip, ErrorBanner, Loading, PageHead, Section, useAnnouncer } from '../components/ui';
 
 interface Identity { provider: 'google' | 'github'; email: string | null; login: string | null; linkedAt: string }
@@ -53,6 +54,9 @@ export function Settings() {
       {authNote && <Section><p className="lead" role="status">{authNote}</p></Section>}
       <Section kicker="Coding profiles" label="Coding profiles" id="profiles">
         <Profiles data={data} now={now} onDone={done} />
+      </Section>
+      <Section kicker="Smart Interviews leaderboard" label="Smart Interviews leaderboard" id="leaderboard">
+        <LeaderboardImport hint={data.user.displayName} onDone={done} />
       </Section>
       <Section kicker="Contest reminders" tone="deep" label="Contest reminders" id="reminders">
         <Reminders initial={data.reminders} onDone={done} />

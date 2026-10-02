@@ -76,3 +76,23 @@ describe('score engine', () => {
     expect(r.fixedShareOfCurrent).toBeCloseTo((126 + 7976 + 908) / 12604, 6);
   });
 });
+
+describe('rating term needs three contests (read from the 2 October 2026 leaderboard export)', () => {
+  it('scores problems and contests alone with one or two contests, whatever the rating', () => {
+    expect(ratedBreakdown('leetcode', { problems: 8, rating: 1468, contests: 1 }).total).toBe(130);
+    expect(ratedBreakdown('leetcode', { problems: 42, rating: 1443, contests: 2 }).total).toBe(520);
+    expect(ratedBreakdown('codechef', { problems: 96, rating: 1613, contests: 1 }).total).toBe(242);
+    expect(ratedBreakdown('codechef', { problems: 57, rating: 1344, contests: 2 }).total).toBe(214);
+  });
+
+  it('includes it from the third contest', () => {
+    expect(ratedBreakdown('codechef', { problems: 36, rating: 1424, contests: 9 }).total).toBe(5539);
+    expect(ratedBreakdown('leetcode', { problems: 20, rating: 1500, contests: 3 }).total).toBe(200 + 4000 + 150);
+    expect(ratedBreakdown('leetcode', { problems: 20, rating: 1500, contests: 2 }).total).toBe(200 + 100);
+  });
+
+  it('tells a person how many contests remain before the rating counts', () => {
+    expect(marginal('codechef', 1500, 1).contestsToRating).toBe(2);
+    expect(marginal('codechef', 1500, 5).contestsToRating).toBe(0);
+  });
+});

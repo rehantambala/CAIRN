@@ -200,13 +200,13 @@ describe('user isolation', () => {
     const A = await signUp('501', 'alpha');
     const B = await signUp('502', 'beta');
     await A.post('/api/import', { platform: 'leetcode', problemsSolved: 100, rating: 1500, contests: 4 });
-    await B.post('/api/import', { platform: 'codeforces', problemsSolved: 30, rating: 900, contests: 2 });
+    await B.post('/api/import', { platform: 'codeforces', problemsSolved: 30, rating: 900, contests: 3 });
     await A.post('/api/profiles/hackerrank', { handle: 'alpha_hr' });
     await A.put('/api/settings', { targetScore: 30_000 });
 
     const a = (await A.get('/api/overview')).json, b = (await B.get('/api/overview')).json;
     expect(a.score.overall).toBe(Math.floor(100 * 10 + 200 ** 2 / 10 + 4 * 50));   // 5,200
-    expect(b.score.overall).toBe(Math.floor(30 * 2 + 100 ** 2 / 10 + 2 * 50));     // 1,160
+    expect(b.score.overall).toBe(Math.floor(30 * 2 + 100 ** 2 / 10 + 3 * 50));     // 1,210 (three contests: the rating term counts)
     expect(a.target).toBe(30_000);
     expect(b.target).toBe(25_000);
     expect(a.milestones.list.at(-1)).toBe(30_000);
@@ -473,7 +473,7 @@ describe('strategist', () => {
     expect((await strategistFor(pool, ownerId, Date.now(), null)).status).toBe('OFF');
 
     const other = (await pool.query(`insert into users(display_name) values ('other') returning id`)).rows[0].id as string;
-    await pool.query(`insert into platform_stats(user_id, platform, base_problems, rating) values ($1,'codeforces',999,2000)`, [other]);
+    await pool.query(`insert into platform_stats(user_id, platform, base_problems, base_contests, rating) values ($1,'codeforces',999,3,2000)`, [other]);
 
     let seen = '';
     const good = async (_s: string, u: string) => { seen = u; return JSON.stringify({ next: { action: 'Solve two LeetCode problems before 21:00.', why: 'They add 20 certain points.' }, today: ['LeetCode first.'], contestPriority: null, practicePriority: null, recovery: null }); };
@@ -489,6 +489,6 @@ describe('strategist', () => {
     await pool.query('delete from strategist_notes');
     const bad = async () => 'I think you solved 40 problems.';
     expect((await strategistFor(pool, ownerId, Date.now(), bad)).status).toBe('UNAVAILABLE');
-    expect((await buildContext(pool, other, Date.now())).currentScore).toBe(Math.floor(999 * 2 + 1200 ** 2 / 10));
+    expect((await buildContext(pool, other, Date.now())).currentScore).toBe(Math.floor(999 * 2 + 1200 ** 2 / 10 + 3 * 50));
   });
 });

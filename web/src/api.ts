@@ -52,7 +52,7 @@ export interface Strategist { status: 'OFF' | 'OK' | 'UNAVAILABLE'; advice: Advi
 export interface RatedComponent {
   platform: 'leetcode' | 'codechef' | 'codeforces'; label: string; total: number; problems: number; rating: number; contests: number;
   parts: { problems: number; rating: number; contests: number };
-  marginal: { perProblem: number; perContest: number; ratingToThreshold: number; ratingPlus25: number; ratingPlus100: number };
+  marginal: { perProblem: number; perContest: number; ratingToThreshold: number; contestsToRating: number; ratingPlus25: number; ratingPlus100: number };
   source: { status: SourceState; updatedAt: string | null; note: string | null };
 }
 export interface ManualComponent { platform: 'smartinterviews' | 'interviewbit' | 'hackerrank'; label: string; total: number; source: { status: SourceState; updatedAt: string | null; note: string | null } }
