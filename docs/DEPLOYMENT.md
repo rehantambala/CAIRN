@@ -1,5 +1,7 @@
 # Deploying on free tiers
 
+[← Back to the README](../README.md) · [Architecture](ARCHITECTURE.md) · [Security](../SECURITY.md)
+
 Nothing needs an always-on machine. The scheduler wakes the service, jobs run to completion.
 
 ## 1. Database: Supabase (or any PostgreSQL)
@@ -21,7 +23,7 @@ Both use the authorisation-code flow with a signed, browser-bound state and PKCE
 
 **Existing account.** Your current data stays in the account created from `OWNER_EMAIL`. To reach it with a provider: sign in with email and password, then Preferences → Sign-in → Link Google / Link GitHub. Alternatively, a Google sign-in whose address Google has verified and which equals `OWNER_EMAIL`, or a GitHub sign-in whose numeric user id equals `OWNER_GITHUB`, attaches to that account the first time. (`OWNER_GITHUB` is the number from `https://api.github.com/users/<login>`, never a login name, which can change hands.)
 
-Sessions are opaque random tokens stored hashed in the database; see `SECURITY.md`.
+Sessions are opaque random tokens stored hashed in the database; see [SECURITY.md](../SECURITY.md).
 
 ## 4. Scheduler
 The server runs its own schedule (reminders every minute, synchronisation every 30 minutes, contests every two hours). On free hosts that sleep, keep the GitHub Actions workflow: add repository secrets `CRON_SECRET` and `CAIRN_API_URL` (the site's HTTPS origin); `.github/workflows/jobs.yml` calls `POST /api/jobs/all` every 10 minutes, which also keeps the service awake. Every job is idempotent and runs under a database lease, and reminder delivery claims rows with `SKIP LOCKED`, so the two triggers never run a job twice at once or send a reminder twice.
