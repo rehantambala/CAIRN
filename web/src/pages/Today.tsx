@@ -1,3 +1,4 @@
+import { TargetReached } from '../components/TargetReached';
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import type { DayState, Overview, Strategist } from '../api';
@@ -80,6 +81,8 @@ export function Today() {
           <p className="pulse enter" style={{ animationDelay: '0.55s' }}><span className="pulse__dot" aria-hidden="true" />{readingLine(o.sources, now)}</p>
         </div>
       </section>
+
+      <TargetReached goal={o.goal} today={o.date} onChange={reload} />
 
       <section className="block block-ink next-wrap" aria-label="Next action">
         <div className="frame"><NextBlock next={o.next} items={o.today.items} delta={o.today.targetScoreDelta} now={now} fetchedAt={fetchedAt} /></div>

@@ -304,3 +304,10 @@ grep -rEl "service_role|SECRET|PRIVATE_KEY|postgres://|GOCSPX|gh[op]_|sk-ant-" w
   instances the 60-second database cooldown and per-person rate limit still apply.
 - **Rate limits are kept in memory** and reset when the service restarts; they are a brake, not an accounting system.
 - **Content Security Policy uses no nonces**, because the built frontend has no inline scripts or styles to allow.
+
+## Calendar link
+
+`/api/feed/<token>.ics` is the one route that is authenticated by its address alone, because calendar applications cannot send cookies. The token is 256 bits from the
+system's random source, only its SHA-256 hash is stored, a new link replaces the old and revocation deletes the row, the response is read-only and lists only the owner's
+contest times and platform links, it is rate-limited per address, and the path is replaced by `/api/feed/[token]` in every log line. A malformed, unknown or revoked token
+returns the same 404. The per-contest download (`/api/contests/:id/ics`) uses the ordinary session.

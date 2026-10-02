@@ -48,3 +48,24 @@ When a source fails, the last verified data is kept and marked STALE or ERROR; n
 
 ## Data ownership
 Global: `problems`, `contests`, `source_health`, `kv`. User-owned (always resolved from the session, never from a request parameter): `users`, `auth_identities`, `platform_accounts`, `platform_stats`, `submissions`, `solved_problems`, `contest_participations`, `contest_commitments`, `rating_history`, `score_snapshots`, `daily_objectives`, `activity_events`, `notifications`, `push_subscriptions`, `awards`, `strategist_notes`.
+
+## Renaming the service so that the address reads CAIRN
+
+The address `<name>.onrender.com` comes from the Render service's name, and the code cannot change it. A service created under an earlier name keeps that
+address until it is renamed. To change it:
+
+1. In Render, open the service, then Settings, then Name, and enter `cairn`. Render uses `cairn.onrender.com` if it is free, and otherwise appends a short
+   suffix; the new address is shown beside the service name. The old address stops working at once.
+2. Set `PUBLIC_URL` to the new address (HTTPS, no trailing slash) and let the service redeploy.
+3. In the Google Cloud console and the GitHub OAuth app, replace the callback with `https://<new address>/api/auth/<provider>/callback`. Sign-in fails until this is done.
+4. In the GitHub repository, update the Actions secret `CAIRN_API_URL`. The scheduled job reads it to wake the service.
+5. Update the live-app links in `README.md` and the Google consent screen (home page, privacy and terms addresses).
+6. Anyone who created a calendar link before the rename must create a new one, because the address inside it changes.
+
+A custom domain avoids this step in future and also removes Chrome's warning attached to the shared `onrender.com` domain.
+
+## Calendar link and reminders
+
+Reminders work through two channels. Web Push needs the VAPID keys (`VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT`); without them every reminder is recorded
+as skipped with the reason, never as delivered. The calendar link needs nothing further: it is served by the same service and works on any device whose
+calendar can subscribe to a link. Check both from Preferences after deployment: enable notifications on each device, create a calendar link, and commit to a contest.

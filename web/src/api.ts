@@ -88,6 +88,8 @@ export interface ContestPlan {
   perContest: number; rating: number; ratingPlus25: number; attempt: number; warmupBeginsAt: number;
   warmup: { count: number; minutes: number; from: number; to: number; problems: Suggestion[] };
 }
+export interface GoalOption { id: 'consolidate' | 'stretch' | 'mastery'; title: string; detail: string; reason: string; targetScore: number; days: number }
+export interface Goal { reached: boolean; current: number; target: number; overshoot: number; options: GoalOption[] }
 export interface Overview {
   brief: Brief;
   user: { displayName: string; timezone: string; targetScore: number; targetDate: string | null }; now: string; date: string;
@@ -95,6 +97,7 @@ export interface Overview {
   milestones: { list: number[]; current: number; next: number | null };
   next: Next; today: Objective; changes: { at: string; text: string; type: string }[]; consistency: Consistency; awards: string[];
   sources: Source[]; upcomingContests: ContestCand[]; knownSources: Platform[];
+  goal: Goal;
   reachability: { current: number; projected: number; gained: number; gap: number; coveredShare: number; stillNeeded: number; fixedShareOfCurrent: number; targets: Partial<Record<'leetcode' | 'codechef' | 'codeforces', number>> };
 }
 export interface ContestRow {

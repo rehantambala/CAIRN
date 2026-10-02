@@ -1,3 +1,4 @@
+import { goalReview } from '../domain/goal.js';
 import type { Db } from '../db/pool.js';
 import { AWARD_DEFINITIONS } from '../domain/awards.js';
 import { dailySeries, milestonesFor } from '../domain/trajectory.js';
@@ -120,6 +121,7 @@ export async function overview(db: Db, userId: string, now: number) {
     sources: sourcesView(loaded.stats),
     upcomingContests: contests.slice(0, 3),
     reachability: reach,
+    goal: goalReview(loaded.inputs, loaded.score.overall, user.targetScore, known, trajectory.gain30 !== null && trajectory.gain30 > 0 ? trajectory.gain30 / 30 : null),
   };
 }
 

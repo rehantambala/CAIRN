@@ -303,7 +303,7 @@ export function pickNext(
         : it.title,
       reason: it.reason,
       target: it.suggestions[0] ? `Begin with ${it.suggestions[0].title}` : null,
-      href: '/today', startsInMs: null, contestId: it.contestId,
+      href: '/#today-list', startsInMs: null, contestId: it.contestId,
     };
   }
 
@@ -323,7 +323,7 @@ export function pickNext(
     return {
       kind: 'COMPLETE', label: 'NEXT', title: 'Objective complete',
       detail: 'Execution is recorded. Tomorrow\'s objective is generated at midnight.',
-      reason: 'Every required item is complete.', target: null, href: '/calendar',
+      reason: 'Every required item is complete.', target: null, href: '/log',
       startsInMs: null, contestId: null,
     };
   }

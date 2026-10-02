@@ -49,6 +49,16 @@ export function Pips({ total, on }: { total: number; on: number }) {
   );
 }
 
+/** The list is on this page, so the control scrolls to it. A link to this page would appear to do nothing. */
+function showList() {
+  const el = document.getElementById('today-list');
+  if (!el) return;
+  const calm = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  el.scrollIntoView({ behavior: calm ? 'auto' : 'smooth', block: 'start' });
+  el.setAttribute('tabindex', '-1');
+  el.focus({ preventScroll: true });
+}
+
 export function NextBlock({ next, items, delta, now, fetchedAt }: { next: Next; items: Item[]; delta: number; now: number; fetchedAt: number }) {
   const left = next.startsInMs !== null ? Math.max(0, next.startsInMs - (now - fetchedAt)) : null;
   const isContest = next.kind === 'CONTEST' || next.kind === 'COMMIT';
@@ -89,8 +99,8 @@ export function NextBlock({ next, items, delta, now, fetchedAt }: { next: Next; 
           ? <Link to={next.href} className="btn btn--big">Open the contest</Link>
           : url
             ? <a href={safeHref(url)} target="_blank" rel="noreferrer noopener" className="btn btn--big">Begin now<span className="sr-only"> (opens in a new tab)</span></a>
-            : <Link to={next.href} className="btn btn--big">Open today’s list</Link>}
-        {!isContest && <a href="#today-list" className="link-arrow">View the full list</a>}
+            : <button type="button" className="btn btn--big" onClick={showList}>Go to today’s list</button>}
+        {!isContest && url && <button type="button" className="link-arrow as-button" onClick={showList}>View the full list</button>}
       </div>
     </div>
   );

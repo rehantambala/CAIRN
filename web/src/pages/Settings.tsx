@@ -57,6 +57,7 @@ export function Settings() {
       <Section kicker="Contest reminders" tone="deep" label="Contest reminders" id="reminders">
         <Reminders initial={data.reminders} onDone={done} />
         <div style={{ marginTop: 'var(--space-9)' }}><Notifications push={data.push} /></div>
+        <div style={{ marginTop: 'var(--space-9)' }}><CalendarLink /></div>
       </Section>
       <Section kicker="Sign-in" label="Sign-in methods"><SignIn data={data} onDone={done} /></Section>
       <Section kicker="Target" tone="deep" label="Target"><Profile data={data} onSaved={() => done('Saved.')} /></Section>
@@ -182,7 +183,21 @@ function ProfileRow({ s, detected, now, onDone }: { s: Source; detected: string 
   );
 }
 
+/**
+ * The leaderboard publishes these three platforms in parts. Entering the parts, rather than a sum worked out by hand,
+ * removes the commonest source of a mismatch: the contribution is added exactly as the leaderboard adds it.
+ */
+const PARTS: Partial<Record<Platform, { fields: { key: string; label: string }[]; divisor: number; hint: string; noun: string }>> = {
+  smartinterviews: { fields: [{ key: 'basic', label: 'Basic' }, { key: 'primary', label: 'Primary' }], divisor: 1, noun: 'Smart Interviews', hint: 'Enter the Basic and Primary columns of your leaderboard row. They are added together.' },
+  hackerrank: { fields: [{ key: 'ds', label: 'Data Structures' }, { key: 'algo', label: 'Algorithms' }], divisor: 1, noun: 'HackerRank', hint: 'Enter the Data Structures and Algorithms columns of your leaderboard row. They are added together.' },
+  interviewbit: { fields: [{ key: 'score', label: 'InterviewBit score' }], divisor: 5, noun: 'InterviewBit', hint: 'Enter the Score column of your leaderboard row. The leaderboard counts one fifth of it.' },
+};
+
 function Figures({ s, onDone }: { s: Source; onDone: (m: string) => void }) {
+  const parts = PARTS[s.platform];
+  const [pv, setPv] = useState<Record<string, string>>({});
+  const partsTotal = parts ? Math.floor(parts.fields.reduce((a, x) => a + (Number(pv[x.key]) || 0), 0) / parts.divisor) : 0;
+  const partsFilled = parts ? parts.fields.every((x) => (pv[x.key] ?? '').trim() !== '') : false;
   const rated = ['leetcode', 'codechef', 'codeforces'].includes(s.platform);
   const [f, setF] = useState({ problemsSolved: '', rating: '', contests: '', contribution: '' });
   const [busy, setBusy] = useState(false);
@@ -191,7 +206,10 @@ function Figures({ s, onDone }: { s: Source; onDone: (m: string) => void }) {
   async function submit(e: FormEvent) {
     e.preventDefault(); setBusy(true); setErr(null);
     try {
-      await post('/import', { platform: s.platform, problemsSolved: num(f.problemsSolved), rating: num(f.rating), contests: num(f.contests), contribution: num(f.contribution), note: 'Entered by you' });
+      if (parts && !partsFilled) { setErr('Please enter every column shown.'); return; }
+      const contribution = parts ? partsTotal : num(f.contribution);
+      const note = parts ? `Entered by you from the leaderboard: ${parts.fields.map((x) => `${x.label} ${Number(pv[x.key]).toLocaleString('en-GB')}`).join(' + ')}${parts.divisor > 1 ? ` ÷ ${parts.divisor}` : ''}` : 'Entered by you';
+      await post('/import', { platform: s.platform, problemsSolved: num(f.problemsSolved), rating: num(f.rating), contests: num(f.contests), contribution, note });
       onDone(`${s.label} figures saved.`);
     } catch (x: any) { setErr(x.code === 'INVALID_INPUT' ? 'Please check the values entered.' : x.message); } finally { setBusy(false); }
   }
@@ -202,6 +220,13 @@ function Figures({ s, onDone }: { s: Source; onDone: (m: string) => void }) {
           <div className="field"><label htmlFor={`p-${s.platform}`}>Problems solved</label><input id={`p-${s.platform}`} className="input" type="number" min={0} value={f.problemsSolved} onChange={(e) => setF({ ...f, problemsSolved: e.target.value })} /></div>
           <div className="field"><label htmlFor={`r-${s.platform}`}>Rating</label><input id={`r-${s.platform}`} className="input" type="number" min={0} value={f.rating} onChange={(e) => setF({ ...f, rating: e.target.value })} /></div>
           <div className="field"><label htmlFor={`c-${s.platform}`}>Contests attended</label><input id={`c-${s.platform}`} className="input" type="number" min={0} value={f.contests} onChange={(e) => setF({ ...f, contests: e.target.value })} /></div>
+        </>
+      ) : parts ? (
+        <>
+          {parts.fields.map((x) => (
+            <div className="field" key={x.key}><label htmlFor={`k-${s.platform}-${x.key}`}>{x.label}</label><input id={`k-${s.platform}-${x.key}`} className="input" type="number" min={0} inputMode="numeric" value={pv[x.key] ?? ''} onChange={(e) => setPv({ ...pv, [x.key]: e.target.value })} /></div>
+          ))}
+          <p className="small" style={{ gridColumn: '1 / -1' }}>{parts.hint}{partsFilled ? ` Contribution to your score: ${partsTotal.toLocaleString('en-GB')}.` : ''}</p>
         </>
       ) : (
         <div className="field"><label htmlFor={`k-${s.platform}`}>Score contribution</label><input id={`k-${s.platform}`} className="input" type="number" min={0} value={f.contribution} onChange={(e) => setF({ ...f, contribution: e.target.value })} /></div>
@@ -234,6 +259,50 @@ function Reminders({ initial, onDone }: { initial: Payload['reminders']; onDone:
         {row('h1', '1 hour before', 'Contests you commit to.')}
         {row('m10', '10 minutes before', 'Contests you commit to.')}
       </div>
+    </div>
+  );
+}
+
+function CalendarLink() {
+  const [st, setSt] = useState<{ enabled: boolean } | null>(null);
+  const [url, setUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [note, setNote] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
+  useEffect(() => { void get<{ enabled: boolean }>('/calendar-feed').then(setSt).catch(() => setSt({ enabled: false })); }, []);
+  async function make() {
+    setBusy(true); setErr(null); setNote(null);
+    try { const r = await post<{ url: string }>('/calendar-feed'); setUrl(r.url); setSt({ enabled: true }); } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  }
+  async function revoke() {
+    setBusy(true); setErr(null); setNote(null);
+    try { await del('/calendar-feed'); setUrl(null); setSt({ enabled: false }); setNote('The calendar link has been revoked. Calendars that subscribed to it will stop updating.'); } catch (e: any) { setErr(e.message); } finally { setBusy(false); }
+  }
+  async function copy() {
+    if (!url) return;
+    try { await navigator.clipboard.writeText(url); setNote('The link has been copied.'); } catch { setNote('Copying was not permitted. Select the link and copy it by hand.'); }
+  }
+  return (
+    <div className="stack">
+      <h3 className="strong">Calendar on your own devices</h3>
+      <p className="lead">Reminders can also be placed in the calendar on your phone or computer, which raises them even where notifications are unavailable. The link is private: whoever holds it can read the list of your contests, and nothing else.</p>
+      {url && (
+        <div className="stack">
+          <div className="field"><label htmlFor="cal-url">Your calendar link</label><input id="cal-url" className="input" readOnly value={url} onFocus={(e) => e.currentTarget.select()} /></div>
+          <div className="btn-row">
+            <button type="button" className="btn" onClick={() => void copy()}>Copy the link</button>
+            <button type="button" className="btn btn--ghost" onClick={() => { window.location.href = url.replace(/^https?:/, 'webcal:'); }}>Add to Apple or Outlook calendar</button>
+          </div>
+          <p className="small">In Google Calendar, choose Other calendars, then From URL, and paste the link. Calendar applications refresh a subscribed link at their own pace, often every few hours, so rely on notifications for a contest that begins within the hour. The link is shown only now; if it is lost, create a new one.</p>
+        </div>
+      )}
+      {!url && st?.enabled && <p className="small">A calendar link exists. For your security it cannot be shown again; create a new one to replace it.</p>}
+      <div className="btn-row">
+        <button type="button" className={url ? 'btn btn--ghost' : 'btn'} disabled={busy || st === null} aria-busy={busy} onClick={() => void make()}>{st?.enabled ? 'Replace the calendar link' : 'Create a calendar link'}</button>
+        {st?.enabled && <button type="button" className="btn btn--ghost" disabled={busy} onClick={() => void revoke()}>Revoke the link</button>}
+      </div>
+      {note && <p className="meta" role="status">{note}</p>}
+      {err && <p className="error-text" role="alert">{err}</p>}
     </div>
   );
 }

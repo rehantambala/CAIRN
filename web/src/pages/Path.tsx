@@ -8,6 +8,7 @@ import { ErrorBanner, Loading, PageHead, Section, SourceChip, Empty } from '../c
 import { GoalBar } from '../components/score';
 import { Bars, LineChart } from '../components/charts';
 import { Simulator } from '../components/Simulator';
+import { Reconcile } from '../components/Reconcile';
 import { BRAND } from '../brand';
 
 interface TrajPayload {
@@ -140,6 +141,19 @@ export function Path() {
           ))}
         </ul>
         <p className="small" style={{ marginTop: 'var(--space-4)' }}>Most recent updates: {s.sources.map((x) => `${x.label} ${ago(x.updatedAt, now)}`).join(' · ')}</p>
+      </Section>
+
+      <Section kicker="Leaderboard check">
+        <h2 className="statement statement--wide">Compare this score with your Smart Interviews row.</h2>
+        <div style={{ marginTop: 'var(--space-8)' }}>
+          <Reconcile
+            overall={s.overall}
+            lines={[
+              ...s.components.map((c) => ({ key: c.platform, label: c.label, ours: c.total })),
+              ...s.manual.map((m) => ({ key: m.platform, label: m.label, ours: m.total })),
+            ]}
+          />
+        </div>
       </Section>
 
       <Section kicker="Scenario">

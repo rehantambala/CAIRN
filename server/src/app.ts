@@ -7,6 +7,7 @@ import { api } from './routes/api.js';
 import { authRouter } from './routes/auth.js';
 import { oauthRouter } from './routes/oauth.js';
 import { jobsRouter } from './routes/jobs.js';
+import { feedRouter } from './routes/feed.js';
 import { corsOptions, csrfGuard, errorHandler, httpsOnly, limiter, requestLog, routeOf, securityHeaders } from './routes/security.js';
 
 /** The API, and optionally the built frontend from `staticDir`, with the error handler last. */
@@ -42,6 +43,7 @@ export function createApp(staticDir?: string) {
   app.use('/api/auth', oauthRouter);
   app.use('/api/auth', authRouter);
   app.use('/api/jobs', jobsRouter);
+  app.use('/api/feed', feedRouter);
   app.use('/api', api);
   app.use('/api', (_req, res) => res.status(404).json({ error: 'NOT_FOUND' }));
   if (staticDir) {

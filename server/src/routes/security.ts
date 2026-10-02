@@ -24,7 +24,8 @@ export function log(level: 'info' | 'warn' | 'error', msg: string, fields: Recor
 }
 
 /** The full path of a request without its query string, regardless of which router is handling it. */
-export const routeOf = (req: Request) => (req.originalUrl || req.url).split('?')[0];
+/** The path as it is logged. A calendar link carries a secret in its path, so that segment is never recorded. */
+export const routeOf = (req: Request) => (req.originalUrl || req.url).split('?')[0].replace(/^\/api\/feed\/[^/]+$/, '/api/feed/[token]');
 
 export const requestLog: RequestHandler = (req, res, next) => {
   const id = randomUUID();

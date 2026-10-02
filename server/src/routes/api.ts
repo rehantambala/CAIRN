@@ -25,6 +25,7 @@ import { isAllowedPushEndpoint, PUSH_KEY_RE } from '../domain/pushEndpoint.js';
 import { deleteAccount, exportAccount } from '../services/account.js';
 import { requestSync } from '../services/syncGate.js';
 import { closePastDays, applyCommitmentToToday } from '../services/derived.js';
+import { contestCalendar, createFeedToken, feedStatus, revokeFeed } from '../services/calendarFeed.js';
 
 export const api = Router();
 api.use(requireAuth);
@@ -255,6 +256,24 @@ api.post('/codeforces/derive-from-history', writeLimit, wrap(async (req, res) =>
     await refreshAfterChange(c, uid(req), Date.now(), 'cf-derive');
   });
   res.json({ ok: true });
+}));
+
+// A private calendar link, and a single contest as a calendar file. Both put the reminder in the calendar
+// application on the person's own device, which raises it even where web push is unavailable.
+api.get('/calendar-feed', wrap(async (req, res) => { res.json(await feedStatus(pool, uid(req))); }));
+api.post('/calendar-feed', writeLimit, wrap(async (req, res) => {
+  const token = await createFeedToken(pool, uid(req));
+  const base = config.publicUrl || `${req.protocol}://${req.get('host')}`;
+  res.json({ url: `${base}/api/feed/${token}.ics`, enabled: true });
+}));
+api.delete('/calendar-feed', writeLimit, wrap(async (req, res) => { await revokeFeed(pool, uid(req)); res.json({ ok: true }); }));
+api.get('/contests/:id/ics', wrap(async (req, res) => {
+  const id = z.string().uuid().parse(req.params.id);
+  const ics = await contestCalendar(pool, uid(req), id, Date.now());
+  if (!ics) return res.status(404).json({ error: 'NOT_FOUND' });
+  res.setHeader('Content-Type', 'text/calendar; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="cairn-contest.ics"');
+  res.send(ics);
 }));
 
 api.get('/settings', wrap(async (req, res) => {

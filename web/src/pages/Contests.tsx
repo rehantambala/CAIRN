@@ -70,7 +70,8 @@ function Actions({ c, now, onChange }: { c: ContestRow; now: number; onChange: (
         {!over && c.committed && <button className="btn btn--ghost" disabled={busy} onClick={() => run(() => del(`/contests/${c.id}/commit`), 'Commitment withdrawn.')}>Committed · withdraw</button>}
         {c.registrationUrl && !over && <a className="btn btn--ghost" href={safeHref(c.registrationUrl)} target="_blank" rel="noreferrer noopener">Register<span className="sr-only"> (opens in a new tab)</span></a>}
         {c.contestUrl && !over && <a className="btn btn--ghost" href={safeHref(c.contestUrl)} target="_blank" rel="noreferrer noopener">Open contest<span className="sr-only"> (opens in a new tab)</span></a>}
-        {!over && <Link className="link-arrow" to="/">Prepare with practice</Link>}
+        {!over && <a className="link-arrow" href={`/api/contests/${c.id}/ics`} download="cairn-contest.ics">Add to calendar<span className="sr-only"> (downloads a calendar file with reminders)</span></a>}
+        {!over && <Link className="link-arrow" to="/practice">Prepare with practice</Link>}
         {started && c.manualOk && !c.attended && <button className="btn btn--ghost" disabled={busy} onClick={() => run(() => post(`/contests/${c.id}/attended`), 'Attendance recorded, unverified.')}>Record attendance</button>}
       </div>
       {msg && <p className="meta" style={{ marginTop: 'var(--space-3)' }}>{msg}</p>}
