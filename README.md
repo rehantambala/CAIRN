@@ -7,7 +7,7 @@
 **A competitive-programming performance instrument.**<br/>
 Sign in, connect your coding profiles, and work towards your own target with one clear next step every day.
 
-[**Open the app →**](https://vector-wx2a.onrender.com)
+[**Open the app →**](https://cairn-prod.onrender.com)
 
 [![CI](https://github.com/rehantambala/CAIRN/actions/workflows/ci.yml/badge.svg)](https://github.com/rehantambala/CAIRN/actions/workflows/ci.yml)
 ![Node](https://img.shields.io/badge/node-%E2%89%A522.12-3c873a?logo=node.js&logoColor=white)
@@ -24,8 +24,8 @@ Sign in, connect your coding profiles, and work towards your own target with one
 
 | | |
 | --- | --- |
-| 🌐 **Live app** | [vector-wx2a.onrender.com](https://vector-wx2a.onrender.com) *(free host: the first load after idle can take a minute)* |
-| 🔐 **Privacy · Terms** | [/privacy](https://vector-wx2a.onrender.com/privacy) · [/terms](https://vector-wx2a.onrender.com/terms) |
+| 🌐 **Live app** | [cairn-prod.onrender.com](https://cairn-prod.onrender.com) *(free host: the first load after idle can take a minute)* |
+| 🔐 **Privacy · Terms** | [/privacy](https://cairn-prod.onrender.com/privacy) · [/terms](https://cairn-prod.onrender.com/terms) |
 | 🏗️ **Architecture** | [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) |
 | 🚀 **Deploy it yourself** | [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md) |
 | 🛡️ **Security model · report a vulnerability** | [SECURITY.md](SECURITY.md) |
