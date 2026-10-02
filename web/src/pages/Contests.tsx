@@ -49,10 +49,25 @@ export function Contests() {
   );
 }
 
-function Actions({ c, now, onChange }: { c: ContestRow; now: number; onChange: () => void }) {
+/** A prefilled Google Calendar event. It carries the time and the contest link; Google offers no way to attach alerts by link,
+ *  so the downloadable file and the private calendar link in Preferences remain the routes that bring reminders with them. */
+function googleCalendarUrl(c: ContestRow): string {
+  const stamp = (iso: string) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+  const q = new URLSearchParams({
+    action: 'TEMPLATE',
+    text: `${c.label}: ${c.title}`,
+    dates: `${stamp(c.startAt)}/${stamp(c.endAt)}`,
+    details: `${c.rated ? 'Rated' : 'Unrated'} contest, added from CAIRN.${c.contestUrl ? ` ${c.contestUrl}` : ''}`,
+  });
+  if (c.contestUrl) q.set('location', c.contestUrl);
+  return `https://calendar.google.com/calendar/render?${q.toString()}`;
+}
+
+function Actions({ c, now, tz, planShown, onChange }: { c: ContestRow; now: number; tz: string; planShown: boolean; onChange: () => void }) {
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [showPlan, setShowPlan] = useState(false);
   const { say, region } = useAnnouncer();
   const started = new Date(c.startAt).getTime() <= now;
   const over = new Date(c.endAt).getTime() <= now;
@@ -70,10 +85,23 @@ function Actions({ c, now, onChange }: { c: ContestRow; now: number; onChange: (
         {!over && c.committed && <button className="btn btn--ghost" disabled={busy} onClick={() => run(() => del(`/contests/${c.id}/commit`), 'Commitment withdrawn.')}>Committed · withdraw</button>}
         {c.registrationUrl && !over && <a className="btn btn--ghost" href={safeHref(c.registrationUrl)} target="_blank" rel="noreferrer noopener">Register<span className="sr-only"> (opens in a new tab)</span></a>}
         {c.contestUrl && !over && <a className="btn btn--ghost" href={safeHref(c.contestUrl)} target="_blank" rel="noreferrer noopener">Open contest<span className="sr-only"> (opens in a new tab)</span></a>}
-        {!over && <a className="link-arrow" href={`/api/contests/${c.id}/ics`} download="cairn-contest.ics">Add to calendar<span className="sr-only"> (downloads a calendar file with reminders)</span></a>}
-        {!over && <Link className="link-arrow" to="/practice">Prepare with practice</Link>}
         {started && c.manualOk && !c.attended && <button className="btn btn--ghost" disabled={busy} onClick={() => run(() => post(`/contests/${c.id}/attended`), 'Attendance recorded, unverified.')}>Record attendance</button>}
       </div>
+      {!over && (
+        <div className="btn-row" style={{ marginTop: 'var(--space-3)' }}>
+          <a className="link-arrow" href={safeHref(googleCalendarUrl(c))} target="_blank" rel="noreferrer noopener">Add to Google Calendar<span className="sr-only"> (opens in a new tab)</span></a>
+          <a className="link-arrow" href={`/api/contests/${c.id}/ics`} download="cairn-contest.ics">Download for Apple or Outlook (.ics)<span className="sr-only"> (downloads a calendar file with alerts at 24 hours, 1 hour and 10 minutes)</span></a>
+          {c.plan && !planShown
+            ? <button type="button" className="link-arrow" aria-expanded={showPlan} onClick={() => setShowPlan((v) => !v)}>{showPlan ? 'Hide the preparation plan' : 'Show the preparation plan'}</button>
+            : <Link className="link-arrow" to="/practice">Browse practice problems</Link>}
+        </div>
+      )}
+      {showPlan && c.plan && <Plan c={c} tz={tz} now={now} />}
+      {!over && !c.committed && (
+        <p className="small" style={{ marginTop: 'var(--space-3)' }}>
+          Committing means you intend to take part. CAIRN then counts the contest as required work on its day, adds your preparation to the plan, and sends reminders 24 hours, 1 hour and 10 minutes before the start. You can withdraw at any time.
+        </p>
+      )}
       {msg && <p className="meta" style={{ marginTop: 'var(--space-3)' }}>{msg}</p>}
       {err && <p className="error-text" role="alert" style={{ marginTop: 'var(--space-3)' }}>{err}</p>}
     </div>
@@ -95,7 +123,7 @@ function Lead({ c, tz, now, onChange }: { c: ContestRow; tz: string; now: number
           ? `You are committed. Preparation begins ${c.prepMinutes} minutes beforehand. ${reminderLine(c) ?? ''}`
           : `Committing schedules preparation and reminders at 1 hour and 10 minutes before the start, in addition to the 24-hour notice. ${c.rated ? 'A rated attempt is the only route to rating movement.' : 'This contest is unrated.'}`}
       </p>
-      <div style={{ marginTop: 'var(--space-8)' }}><Actions c={c} now={now} onChange={onChange} /></div>
+      <div style={{ marginTop: 'var(--space-8)' }}><Actions c={c} now={now} tz={tz} planShown={!!c.plan} onChange={onChange} /></div>
     </div>
   );
 }
@@ -178,7 +206,7 @@ function Row({ c, tz, now, onChange }: { c: ContestRow; tz: string; now: number;
         </p>
         {reminderLine(c) && <p className="small">{reminderLine(c)}</p>}
       </div>
-      <Actions c={c} now={now} onChange={onChange} />
+      <Actions c={c} now={now} tz={tz} planShown={false} onChange={onChange} />
     </li>
   );
 }

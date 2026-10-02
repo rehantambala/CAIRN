@@ -25,6 +25,20 @@ async function setStatus(db: Db, userId: string, platform: Platform, status: str
   );
 }
 
+const PLATFORM_NAME: Record<string, string> = { leetcode: 'LeetCode', codechef: 'CodeChef', codeforces: 'Codeforces' };
+
+/** An adapter's raw error, put into words the person can act on. The raw text is still logged in the connection's last_error. */
+export function friendlySyncError(platform: Platform, e: unknown): string {
+  const raw = String((e as any)?.message ?? e);
+  const name = PLATFORM_NAME[platform] ?? platform;
+  if (/HTTP (403|429)\b/.test(raw)) return `${name} declined the request, which usually means it is limiting automated requests from this server. Nothing was changed. Please try again in a few minutes.`;
+  if (/HTTP 5\d\d\b/.test(raw)) return `${name} is not responding at present. Nothing was changed. Please try again later.`;
+  if (/HTTP 404\b/.test(raw)) return `${name} reports that this profile does not exist. Check the handle in Preferences.`;
+  if (/abort|timeout|timed out|fetch failed|ENOTFOUND|ECONN|EAI_AGAIN|socket/i.test(raw)) return `${name} could not be reached. Nothing was changed. Please try again shortly.`;
+  if (/solved total/i.test(raw)) return `${name} did not show a solved total for this profile. Check that the handle is correct and that the profile is public.`;
+  return raw.slice(0, 160);
+}
+
 /**
  * Sync one platform. On failure the existing data is kept untouched and the status becomes ERROR;
  * an empty or failed response never overwrites valid data.
@@ -47,9 +61,10 @@ export async function syncPlatform(userId: string, platform: Platform, now = Dat
     contests = adapter.getContests ? await adapter.getContests() : [];
     totals = adapter.getTotals ? await adapter.getTotals(handle) : null;
   } catch (e: any) {
-    await setStatus(pool, userId, platform, 'ERROR', String(e?.message ?? e).slice(0, 200), false);
-    await pool.query('update platform_accounts set last_error=$3 where user_id=$1 and platform=$2', [userId, platform, String(e?.message ?? e).slice(0, 200)]);
-    rep.message = `Synchronisation failed: ${e?.message ?? e}`;
+    const why = friendlySyncError(platform, e).slice(0, 200);
+    await setStatus(pool, userId, platform, 'ERROR', why, false);
+    await pool.query('update platform_accounts set last_error=$3 where user_id=$1 and platform=$2', [userId, platform, why]);
+    rep.message = `Synchronisation failed: ${friendlySyncError(platform, e)}`;
     return rep;
   }
 

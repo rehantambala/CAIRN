@@ -73,10 +73,35 @@ export function Settings() {
 
 const ORDER: Platform[] = ['leetcode', 'codechef', 'codeforces', 'hackerrank', 'interviewbit', 'smartinterviews'];
 
+interface SyncReply { ok: boolean; message: string; cached?: boolean; newProblems?: number; newParticipations?: number }
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
+/** What a synchronisation did, in words. Both the per-platform button and "Synchronise all" use it. */
+function syncSummary(r: SyncReply): string {
+  if (r.cached) return 'Read less than a minute ago; the figures shown are current.';
+  const np = r.newProblems ?? 0, nc = r.newParticipations ?? 0;
+  const found = np === 0 && nc === 0 ? 'Nothing new was found' : `${plural(np, 'new accepted problem', 'new accepted problems')} and ${plural(nc, 'new contest', 'new contests')} found`;
+  return `Synchronised. ${found}; the score has been recalculated from the platform’s own totals.`;
+}
+
 function Profiles({ data, now, onDone }: { data: Payload; now: number; onDone: (m: string) => void }) {
   const [text, setText] = useState('');
   const [busy, setBusy] = useState(false);
   const [out, setOut] = useState<string | null>(null);
+  const [allBusy, setAllBusy] = useState(false);
+  const [allOut, setAllOut] = useState<string[] | null>(null);
+  const readable = data.sources.filter((s) => s.capability === 'AUTOMATIC' && !!s.username && s.connection !== 'PENDING_VERIFICATION');
+  /** One platform after another, so the platforms' own rate limits are respected and one failure does not hide the others. */
+  async function syncAll() {
+    setAllBusy(true); setAllOut(null);
+    const lines: string[] = [];
+    for (const s of readable) {
+      try {
+        const r = await post<SyncReply>(`/sync/${s.platform}`);
+        lines.push(`${s.label}: ${r.ok ? syncSummary(r) : r.message}`);
+      } catch (x: any) { lines.push(`${s.label}: ${x.message}`); }
+    }
+    setAllOut(lines); setAllBusy(false); onDone('Synchronisation finished.');
+  }
   async function paste(e: FormEvent) {
     e.preventDefault(); setBusy(true); setOut(null);
     try {
@@ -90,6 +115,17 @@ function Profiles({ data, now, onDone }: { data: Payload; now: number; onDone: (
   return (
     <div className="stack-lg">
       <p className="lead">Each profile is verified with its platform before it is connected. Platforms that permit no automatic reading keep your handle and the figures you enter.</p>
+      <div className="stack">
+        <div className="btn-row">
+          <button className="btn" type="button" onClick={syncAll} disabled={allBusy || readable.length === 0} aria-busy={allBusy}>{allBusy ? 'Synchronising' : 'Synchronise all connected profiles'}</button>
+        </div>
+        <p className="small">
+          {readable.length === 0
+            ? 'No profile that can be read automatically is connected yet. Connect LeetCode or Codeforces below.'
+            : `Reads ${readable.map((s) => s.label).join(', ')} now. HackerRank, InterviewBit and Smart Interviews have no public route, so their figures come from the leaderboard import further down.`}
+        </p>
+        {allOut && <ul className="ledger" role="status">{allOut.map((l) => <li key={l} className="ledger__row"><span className="ledger__v">{l}</span></li>)}</ul>}
+      </div>
       <form onSubmit={paste} className="paste">
         <div className="field">
           <label htmlFor="disc">Profile addresses</label>
@@ -164,10 +200,9 @@ function ProfileRow({ s, detected, now, onDone }: { s: Source; detected: string 
         <div className="btn-row">
           {automatic && s.connection !== 'PENDING_VERIFICATION' && (
             <button className="btn" disabled={busy !== null} aria-busy={busy === 'sync'} onClick={() => run('sync', async () => {
-              const r = await post<{ ok: boolean; message: string; cached?: boolean }>(`/sync/${s.platform}`);
+              const r = await post<SyncReply>(`/sync/${s.platform}`);
               if (!r.ok) throw new Error(r.message);
-              if (r.cached) return 'Synchronised less than a minute ago; the figures shown are current.';
-              return 'Synchronised. The score has been recalculated from the platform’s figures.';
+              return syncSummary(r);
             })}>{busy === 'sync' ? 'Synchronising' : 'Synchronise now'}</button>
           )}
           {s.connection === 'PENDING_VERIFICATION' && <button className="btn" disabled={busy !== null} aria-busy={busy === 'connect'} onClick={() => connect(s.username!)}>Verify again</button>}
@@ -362,8 +397,13 @@ function Account() {
   }
   async function remove(e: FormEvent) {
     e.preventDefault(); setBusy('delete'); setMsg(null);
-    try { await del('/account', { confirm: 'DELETE' }); window.location.assign('/'); } catch (x: any) { setMsg(x.message); setBusy(null); }
+    try {
+      await del('/account', { confirm: 'DELETE' });
+      setMsg('Your account and its data have been deleted. Returning to the sign-in page.');
+      setTimeout(() => window.location.assign('/'), 1500);
+    } catch (x: any) { setMsg(`The account was not deleted: ${x.message}`); setBusy(null); }
   }
+  const confirmed = confirm.trim().toUpperCase() === 'DELETE';
   return (
     <div className="stack-lg">
       <div className="stack">
@@ -380,10 +420,11 @@ function Account() {
         <div className="btn-row" style={{ alignItems: 'end' }}>
           <div className="field" style={{ minWidth: 220 }}>
             <label htmlFor="del-c">Type DELETE to confirm</label>
-            <input id="del-c" className="input" value={confirm} autoComplete="off" spellCheck={false} onChange={(e) => setConfirm(e.target.value)} />
+            <input id="del-c" className="input" value={confirm} autoComplete="off" spellCheck={false} onChange={(e) => setConfirm(e.target.value)} aria-describedby="del-h2" />
           </div>
-          <button className="btn btn--ghost" disabled={busy !== null || confirm !== 'DELETE'} aria-busy={busy === 'delete'}>{busy === 'delete' ? 'Deleting' : 'Delete my account'}</button>
+          <button className="btn btn--ghost" disabled={busy !== null || !confirmed} aria-busy={busy === 'delete'}>{busy === 'delete' ? 'Deleting' : 'Delete my account'}</button>
         </div>
+        <p id="del-h2" className="small">{confirmed ? 'The button is now active. Pressing it deletes the account at once.' : 'The button stays inactive until the word DELETE has been typed in the box.'}</p>
       </form>
       {msg && <p className="meta" role="status">{msg}</p>}
     </div>
