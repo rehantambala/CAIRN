@@ -69,7 +69,7 @@ CURRENT STATE → TRAJECTORY → TODAY'S EXECUTION → NEXT → verified complet
 | Database | PostgreSQL with row-level security on every table |
 | Auth | Google and GitHub OAuth (code flow + PKCE), opaque hashed sessions, bcrypt password fallback |
 | Notifications | Web Push (VAPID) |
-| Testing | Vitest, 162 tests including a dedicated security suite |
+| Testing | Vitest, 191 tests including a dedicated security suite |
 | Hosting | Render (one service for API + web), Supabase or any PostgreSQL, GitHub Actions cron |
 
 ## Run it locally
